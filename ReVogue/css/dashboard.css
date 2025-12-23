@@ -89,10 +89,6 @@ body {
 }
 
 .logo-icon {
-    background: linear-gradient(to bottom right, var(--purple-500), var(--pink-500));
-    padding: 0.5rem;
-    border-radius: 0.75rem;
-    color: white;
     display: flex;
     align-items: center;
     justify-content: center;
