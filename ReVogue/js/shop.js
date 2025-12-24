@@ -593,7 +593,7 @@ function renderProducts(products) {
                     <span class="rating-count">(${product.reviews})</span>
                 </div>
                 <div class="product-footer">
-                    <span class="product-price">$${product.price.toFixed(2)}</span>
+                    <span class="product-price">BDT ${product.price.toFixed(2)}</span>
                     <button class="product-add-btn" onclick="addToCart(event, ${product.id})">Add to Cart</button>
                 </div>
             </div>
