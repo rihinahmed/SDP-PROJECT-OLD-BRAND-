@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us - The Renewed Studio</title>
+    <link rel="stylesheet" href="/ReVogue/css/contact.css">
+</head>
+<body>
+    <!-- Particle Background -->
+    <canvas id="particleCanvas"></canvas>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-container">
+            <div class="header-left">
+                <div class="logo-icon">
+                    <a href="index.html">
+                        <img src="/ReVogue/assets/images/logo-removebg-preview.png" alt="Logo" height="40">
+                    </a>
+                </div>
+            </div>
+            <!--Alpha Coy Comd-->
+
+            <nav class="nav-links">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="shop.html" class="nav-link">Shop</a>
+                <a href="about.html" class="nav-link">About</a>
+                <a href="contact.html" class="nav-link active">Contact</a>
+            </nav>
+
+            <div class="search-container">
+                <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                </svg>
+                <input type="text" placeholder="Search for vintage treasures..." class="search-input">
+            </div>
+
+            <div class="header-actions">
+                <button class="btn-primary">Sell Item</button>
+                <button class="icon-btn" title="Favorites">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                    </svg>
+                </button>
+                <a href="dashboard.html" class="icon-btn" title="Dashboard">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-pattern"></div>
+        <div class="hero-content">
+            <div class="hero-badge">
+                <svg class="sparkle-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2v20M2 12h20M6 6l12 12M6 18L18 6"></path>
+                </svg>
+                <span>Get In Touch</span>
+            </div>
+            
+            <h2 class="hero-title">
+                We'd Love to <br>
+                <span class="hero-highlight">Hear From You</span>
+            </h2>
+            
+            <p class="hero-description">
+                Have questions? We're here to help. Reach out anytime!
+            </p>
+        </div>
+        <div class="hero-wave">
+            <svg viewBox="0 0 1440 120">
+                <path fill="#faf5ff" d="M0,64L80,69.3C160,75,320,85,480,80C640,75,800,53,960,48C1120,43,1280,53,1360,58.7L1440,64L1440,120L1360,120C1280,120,1120,120,960,120C800,120,640,120,480,120C320,120,160,120,80,120L0,120Z"></path>
+            </svg>
+        </div>
+    </section>
+
+    <!-- Contact Methods -->
+    <section class="contact-methods-section">
+        <div class="container">
+            <div class="contact-methods-grid" id="contactMethodsGrid">
+                <!-- Contact methods will be populated by JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Form Section -->
+    <section class="contact-form-section">
+        <div class="container">
+            <div class="contact-grid">
+                <!-- Form -->
+                <div class="form-wrapper">
+                    <div class="section-badge">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                        <span>Send Message</span>
+                    </div>
+                    <h3 class="section-title">Drop Us a Line</h3>
+                    
+                    <div id="successMessage" class="success-message" style="display: none;">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="success-icon">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                        <h4>Message Sent Successfully!</h4>
+                        <p>We'll get back to you within 24 hours.</p>
+                    </div>
+
+                    <form id="contactForm" class="contact-form">
+                        <div class="form-group">
+                            <label class="form-label">Your Name</label>
+                            <input type="text" name="name" placeholder="Sadequr Rahman" required class="form-input" readonly>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Email Address</label>
+                            <input type="email" name="email" placeholder="sadequr@gmail.com" required class="form-input" readonly>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Subject</label>
+                            <select name="subject" required class="form-select">
+                                <option value="">Select a subject</option>
+                                <option value="general">General Inquiry</option>
+                                <option value="support">Customer Support</option>
+                                <option value="selling">Selling Questions</option>
+                                <option value="buying">Buying Questions</option>
+                                <option value="partnership">Partnership</option>
+                                <option value="feedback">Feedback</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Message</label>
+                            <textarea name="message" placeholder="Tell us how we can help you..." required rows="6" class="form-textarea"></textarea>
+                        </div>
+
+                        <button type="submit" class="submit-button">
+                            <span>Send Message</span>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Info Sidebar -->
+                <div class="info-sidebar">
+                    <div class="info-card">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="info-icon">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <h4>Business Hours</h4>
+                        <div class="info-list">
+                            <div class="info-item">
+                                <span class="info-label">Monday - Friday</span>
+                                <span class="info-value">9:00 AM - 6:00 PM</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Saturday</span>
+                                <span class="info-value">10:00 AM - 4:00 PM</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Sunday</span>
+                                <span class="info-value">Closed</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-card social-card">
+                        <h4>Follow Us</h4>
+                        <p>Stay connected on social media</p>
+                        <div class="social-links">
+                            <button class="social-link">Instagram</button>
+                            <button class="social-link">Twitter</button>
+                            <button class="social-link">Facebook</button>
+                            <button class="social-link">Pinterest</button>
+                        </div>
+                    </div>
+
+                    <div class="info-card newsletter-card">
+                        <h4>Newsletter</h4>
+                        <p>Subscribe for updates and exclusive offers</p>
+                        <div class="newsletter-form">
+                            <input type="email" placeholder="Your email" class="newsletter-input">
+                            <button class="newsletter-button">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="faq-section">
+        <div class="container">
+            <div class="section-badge centered">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span>FAQ</span>
+            </div>
+            <h3 class="section-title text-center">Frequently Asked Questions</h3>
+            <div class="faq-grid" id="faqGrid">
+                <!-- FAQs will be populated by JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Map Section -->
+    <section class="map-section">
+        <div class="container">
+            <div class="map-wrapper">
+                <div class="map-placeholder">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="map-icon">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    <h4>Visit Our Store</h4>
+                    <p>123 Fashion Street, New York, NY 10001</p>
+                    <button class="map-button">Get Directions</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="/ReVogue/js/particles.js"></script>
+    <script src="/ReVogue/js/contact.js"></script>
+</body>
+</html>
