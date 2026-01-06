@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Us - ReVogue</title>
+    <link rel="stylesheet" href="/ReVogue/css/about.css">
+</head>
+<body>
+    <!-- Particle Background -->
+    <canvas id="particleCanvas"></canvas>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-container">
+            <div class="header-left">
+                <div class="logo-icon">
+                    <a href="index.html">
+                        <img src="/ReVogue/assets/images/logo-removebg-preview.png" alt="Logo" height="40">
+                    </a>
+                </div>
+            </div>
+            <!--Alpha Coy-->
+
+            <nav class="nav-links">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="shop.html" class="nav-link">Shop</a>
+                <a href="about.html" class="nav-link active">About</a>
+                <a href="contact.html" class="nav-link">Contact</a>
+            </nav>
+
+            <div class="search-container">
+                <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                </svg>
+                <input type="text" placeholder="Search for vintage treasures..." class="search-input">
+            </div>
+
+            <div class="header-actions">
+                <button class="btn-primary">Sell Item</button>
+                <button class="icon-btn" title="Favorites">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                    </svg>
+                </button>
+                <a href="dashboard.html" class="icon-btn" title="Dashboard">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-pattern"></div>
+        <div class="hero-content">
+            <div class="hero-badge">
+                <svg class="sparkle-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2v20M2 12h20M6 6l12 12M6 18L18 6"></path>
+                </svg>
+                <span>Our Story</span>
+            </div>
+            
+            <h2 class="hero-title">
+                Fashion That <br>
+                <span class="hero-highlight">Cares for Tomorrow</span>
+            </h2>
+            
+            <p class="hero-description">
+                ReVogue was born from a simple idea: great style shouldn't cost the Earth.
+            </p>
+        </div>
+        <div class="hero-wave">
+            <svg viewBox="0 0 1440 120">
+                <path fill="#faf5ff" d="M0,64L80,69.3C160,75,320,85,480,80C640,75,800,53,960,48C1120,43,1280,53,1360,58.7L1440,64L1440,120L1360,120C1280,120,1120,120,960,120C800,120,640,120,480,120C320,120,160,120,80,120L0,120Z"></path>
+            </svg>
+        </div>
+    </section>
+
+    <!-- Story Section -->
+    <section class="story-section">
+        <div class="container">
+            <div class="story-grid">
+                <div class="story-content">
+                    <div class="section-badge">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                        </svg>
+                        <span>Our Mission</span>
+                    </div>
+                    <h3 class="section-title">Revolutionizing Fashion, One Item at a Time</h3>
+                    <p class="section-text">
+                        Founded in 2020, ReVogue emerged from a passion for sustainable living and timeless fashion. 
+                        We saw mountains of perfectly good clothing going to waste while people craved unique, 
+                        affordable style.
+                    </p>
+                    <p class="section-text">
+                        Today, we're proud to be a thriving marketplace where fashion lovers buy, sell, and 
+                        discover pre-loved treasures. Every transaction on our platform is a step toward a more 
+                        sustainable future.
+                    </p>
+                    <div class="story-highlights">
+                        <div class="highlight-item">
+                            <div class="highlight-number">2020</div>
+                            <div class="highlight-label">Founded</div>
+                        </div>
+                        <div class="highlight-item">
+                            <div class="highlight-number">50+</div>
+                            <div class="highlight-label">Countries</div>
+                        </div>
+                        <div class="highlight-item">
+                            <div class="highlight-number">24/7</div>
+                            <div class="highlight-label">Support</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="story-image">
+                    <div class="floating-card card-1">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                        <div class="card-title">Eco-Friendly</div>
+                    </div>
+                    <div class="floating-card card-2">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                        </svg>
+                        <div class="card-title">Community First</div>
+                    </div>
+                    <div class="floating-card card-3">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="8" r="7"></circle>
+                            <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>
+                        </svg>
+                        <div class="card-title">Quality Assured</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats-section">
+        <div class="container">
+            <h3 class="section-title text-center">Our Impact in Numbers</h3>
+            <div class="stats-grid" id="statsGrid">
+                <!-- Stats will be populated by JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Values Section -->
+    <section class="values-section">
+        <div class="container">
+            <div class="section-badge centered">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2v20M2 12h20M6 6l12 12M6 18L18 6"></path>
+                </svg>
+                <span>Our Values</span>
+            </div>
+            <h3 class="section-title text-center">What We Stand For</h3>
+            <div class="values-grid" id="valuesGrid">
+                <!-- Values will be populated by JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Team Section -->
+    <section class="team-section">
+        <div class="container">
+            <div class="section-badge centered">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                <span>Our Team</span>
+            </div>
+            <h3 class="section-title text-center">Meet the People Behind ReVogue</h3>
+            <div class="team-grid" id="teamGrid">
+                <!-- Team members will be populated by JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="cta-container">
+            <div class="cta-content">
+                <h3 class="cta-title">Ready to Join the Movement?</h3>
+                <p class="cta-text">
+                    Start buying and selling pre-loved fashion today. Together, we can make a difference.
+                </p>
+                <button class="cta-button">
+                    <span>Get Started</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2v20M2 12h20M6 6l12 12M6 18L18 6"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <script src="/ReVogue/js/particles.js"></script>
+    <script src="/ReVogue/js/about.js"></script>
+</body>
+</html>
