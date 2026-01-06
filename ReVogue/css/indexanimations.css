@@ -1,0 +1,84 @@
+/* ========================================
+   SCROLL REVEAL CLASSES
+   ======================================== */
+
+/* Initially hide elements - but ensure they're still accessible */
+.scroll-reveal-left,
+.scroll-reveal-right,
+.scroll-reveal-bottom,
+.scroll-reveal-popup,
+.scroll-reveal-zoom {
+    opacity: 0;
+    visibility: visible;
+}
+
+/* Slide from Left */
+.scroll-reveal-left {
+    transform: translateX(-100px);
+    transition: all 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.scroll-reveal-left.revealed {
+    opacity: 1;
+    transform: translateX(0);
+    visibility: visible;
+}
+
+/* Slide from Right */
+.scroll-reveal-right {
+    transform: translateX(100px);
+    transition: all 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.scroll-reveal-right.revealed {
+    opacity: 1;
+    transform: translateX(0);
+    visibility: visible;
+}
+
+/* Slide from Bottom */
+.scroll-reveal-bottom {
+    transform: translateY(80px);
+    transition: all 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.scroll-reveal-bottom.revealed {
+    opacity: 1;
+    transform: translateY(0);
+    visibility: visible;
+}
+
+/* Popup/Scale Effect */
+.scroll-reveal-popup {
+    transform: scale(0.3);
+    transition: all 0.7s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.scroll-reveal-popup.revealed {
+    opacity: 1;
+    transform: scale(1);
+    visibility: visible;
+}
+
+/* Zoom Effect */
+.scroll-reveal-zoom {
+    transform: scale(0.5);
+    transition: all 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.scroll-reveal-zoom.revealed {
+    opacity: 1;
+    transform: scale(1);
+    visibility: visible;
+}
+
+/* Fade In */
+.scroll-reveal-fade {
+    opacity: 0;
+    transition: all 0.8s ease;
+}
+
+.scroll-reveal-fade.revealed {
+    opacity: 1;
+    visibility: visible;
+}

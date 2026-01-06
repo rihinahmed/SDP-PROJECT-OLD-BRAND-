@@ -414,7 +414,7 @@ const maxPriceInput = document.getElementById('maxPrice');
 
 priceRange.addEventListener('input', (e) => {
     filters.maxPrice = parseInt(e.target.value);
-    priceValue.textContent = `$${filters.maxPrice}`;
+    priceValue.textContent = `BDT ${filters.maxPrice}`;
     maxPriceInput.value = filters.maxPrice;
     displayedProducts = 12;
     filterProducts();
@@ -430,7 +430,7 @@ maxPriceInput.addEventListener('change', (e) => {
     const value = parseInt(e.target.value) || 1000;
     filters.maxPrice = value;
     priceRange.value = value;
-    priceValue.textContent = `$${value}`;
+    priceValue.textContent = `BDT ${value}`;
     displayedProducts = 12;
     filterProducts();
 });
@@ -474,7 +474,7 @@ document.getElementById('clearFilters').addEventListener('click', () => {
     displayedProducts = 12;
     
     priceRange.value = 1000;
-    priceValue.textContent = '$1000';
+    priceValue.textContent = 'BDT 1000';
     minPriceInput.value = '';
     maxPriceInput.value = '';
     document.getElementById('searchInput').value = '';
@@ -635,7 +635,7 @@ function showQuickView(event, productId) {
                 <span class="stars">${'★'.repeat(Math.floor(product.rating))}${'☆'.repeat(5 - Math.floor(product.rating))}</span>
                 <span class="rating-count">(${product.reviews} reviews)</span>
             </div>
-            <div class="quick-view-price">$${product.price.toFixed(2)}</div>
+            <div class="quick-view-price">BDT ${product.price.toFixed(2)}</div>
             <div class="product-category" style="margin: 0.5rem 0;">Category: ${product.category}</div>
             <div style="font-size: 0.875rem; color: var(--gray-600); margin-bottom: 0.5rem;">
                 Condition: <strong>${product.condition}</strong> | Size: <strong>${product.size}</strong>
