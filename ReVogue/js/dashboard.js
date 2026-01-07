@@ -223,7 +223,7 @@ function renderMyListings() {
             </div>
             <div class="listing-info">
                 <div class="listing-name">${item.name}</div>
-                <div class="listing-price">$${item.price.toFixed(2)}</div>
+                <div class="listing-price">BDT ${item.price.toFixed(2)}</div>
                 <div class="listing-actions">
                     <button class="btn-icon btn-edit" onclick="editListing(${item.id})">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -266,7 +266,7 @@ function renderFavorites() {
             </div>
             <div class="listing-info">
                 <div class="listing-name">${item.name}</div>
-                <div class="listing-price">$${item.price.toFixed(2)}</div>
+                <div class="listing-price">BDT ${item.price.toFixed(2)}</div>
                 <div style="font-size: 0.875rem; color: var(--gray-600); margin-top: 0.5rem;">
                     by ${item.seller}
                 </div>
@@ -296,7 +296,7 @@ function renderPurchases() {
             <div class="purchase-info">
                 <div class="purchase-header">
                     <div class="purchase-name">${item.name}</div>
-                    <div class="purchase-price">$${item.price.toFixed(2)}</div>
+                    <div class="purchase-price">BDT ${item.price.toFixed(2)}</div>
                 </div>
                 <div class="purchase-details">
                     <div class="purchase-date">
@@ -390,7 +390,7 @@ function updateStats() {
     document.getElementById('totalListings').textContent = activeListings;
     document.getElementById('totalFavorites').textContent = favoritesData.length;
     document.getElementById('totalSold').textContent = soldItems;
-    document.getElementById('totalEarnings').textContent = `$${totalEarnings.toFixed(2)}`;
+    document.getElementById('totalEarnings').textContent = `BDT ${totalEarnings.toFixed(2)}`;
 }
 
 // Logout Button

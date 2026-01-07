@@ -271,7 +271,7 @@ function renderProducts(productsToRender) {
                     Used for ${product.usageTime}
                 </div>
                 <div class="product-footer">
-                    <span class="product-price">$${product.price.toFixed(2)}</span>
+                    <span class="product-price">BDT ${product.price.toFixed(2)}</span>
                     <span class="product-seller">${product.seller}</span>
                 </div>
             </div>
@@ -356,7 +356,7 @@ function showProductDetail(productId) {
                     <h3 class="detail-name">${product.name}</h3>
                     <span class="detail-condition ${getConditionClass(product.condition)}">${product.condition}</span>
                 </div>
-                <div class="detail-price">$${product.price.toFixed(2)}</div>
+                <div class="detail-price">BDT ${product.price.toFixed(2)}</div>
                 <div class="detail-meta">
                     <div class="detail-meta-item">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
