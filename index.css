@@ -137,6 +137,7 @@ body {
     background: linear-gradient(to right, var(--purple-500), var(--pink-500));
     border-radius: 2px;
 }
+/* Styling is 50% science, 50% magic */
 
 .search-container {
     flex: 1;
