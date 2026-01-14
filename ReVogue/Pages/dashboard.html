@@ -24,9 +24,9 @@
 
             <nav class="nav-links">
                 <a href="index.html" class="nav-link">Home</a>
-                <a href="#" class="nav-link">Shop</a>
-                <a href="#" class="nav-link">About</a>
-                <a href="#" class="nav-link">Contact</a>
+                <a href="shop.html" class="nav-link">Shop</a>
+                <a href="about.html" class="nav-link">About</a>
+                <a href="contact.html" class="nav-link">Contact</a>
             </nav>
 
             <div class="search-container">
@@ -80,10 +80,7 @@
         <div class="dashboard-hero-content">
             <div class="user-profile-header">
                 <div class="user-avatar">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="12" cy="7" r="4"></circle>
-                    </svg>
+                    <img src="/ReVogue/assets/images/ajmain.jpeg" alt="User Avatar" id="userAvatarImg" class="avatar-image">
                 </div>
                 <div class="user-info">
                     <h2 class="user-name" id="userName">Ajmain Taki</h2>
@@ -247,12 +244,25 @@
                             <h4 class="settings-section-title">Profile Information</h4>
                             <div class="settings-form">
                                 <div class="form-group">
+                                    <label class="form-label">Profile Picture</label>
+                                    <div class="profile-image-upload">
+                                        <div class="current-profile-image">
+                                            <img src="/ReVogue/assets/images/default-avatar.png" alt="Profile" id="settingsAvatarPreview" class="settings-avatar-preview">
+                                        </div>
+                                        <div class="upload-controls">
+                                            <input type="file" id="profileImageInput" accept="image/*" style="display: none;">
+                                            <button type="button" class="btn-secondary" id="uploadImageBtn">Choose Image</button>
+                                            <button type="button" class="btn-secondary" id="removeImageBtn">Remove</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
                                     <label class="form-label">Full Name</label>
-                                    <input type="text" value="Sultan Bin Alam" id="settingsName">
+                                    <input type="text" value="Ajmain Taki" id="settingsName" readonly>
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Email</label>
-                                    <input type="email" value="sultanbhai@gmail.com" id="settingsEmail">
+                                    <input type="email" value="ajmaintaki@gmail.com" id="settingsEmail">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Phone Number</label>

@@ -413,3 +413,70 @@ renderMyListings();
 renderFavorites();
 renderPurchases();
 updateStats();
+
+// Profile Image Upload Functionality
+const profileImageInput = document.getElementById('profileImageInput');
+const uploadImageBtn = document.getElementById('uploadImageBtn');
+const removeImageBtn = document.getElementById('removeImageBtn');
+const settingsAvatarPreview = document.getElementById('settingsAvatarPreview');
+const userAvatarImg = document.getElementById('userAvatarImg');
+
+// Load saved image from localStorage on page load
+function loadSavedProfileImage() {
+    const savedImage = localStorage.getItem('userProfileImage');
+    if (savedImage) {
+        userAvatarImg.src = savedImage;
+        settingsAvatarPreview.src = savedImage;
+    }
+}
+
+// Trigger file input when button is clicked
+uploadImageBtn.addEventListener('click', () => {
+    profileImageInput.click();
+});
+
+// Handle image selection
+profileImageInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            
+            reader.onload = (event) => {
+                const imageDataUrl = event.target.result;
+                
+                // Update both preview and header avatar
+                settingsAvatarPreview.src = imageDataUrl;
+                userAvatarImg.src = imageDataUrl;
+                
+                // Save to localStorage
+                localStorage.setItem('userProfileImage', imageDataUrl);
+                
+                console.log('Profile image updated successfully!');
+            };
+            
+            reader.readAsDataURL(file);
+        } else {
+            alert('Please select a valid image file');
+        }
+    }
+});
+
+// Remove profile image
+removeImageBtn.addEventListener('click', () => {
+    const defaultImage = '/ReVogue/assets/images/default-avatar.png';
+    
+    settingsAvatarPreview.src = defaultImage;
+    userAvatarImg.src = defaultImage;
+    
+    // Remove from localStorage
+    localStorage.removeItem('userProfileImage');
+    
+    // Clear file input
+    profileImageInput.value = '';
+    
+    console.log('Profile image removed');
+});
+
+// Load saved image when page loads
+loadSavedProfileImage();
