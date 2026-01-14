@@ -1,3 +1,177 @@
+// API Configuration
+const API_URL = 'http://localhost:3000/api';
+
+// Auth Service
+const AuthService = {
+    getToken() {
+        return localStorage.getItem('authToken');
+    },
+    
+    setToken(token) {
+        localStorage.setItem('authToken', token);
+    },
+    
+    removeToken() {
+        localStorage.removeItem('authToken');
+    },
+    
+    getUser() {
+        const user = localStorage.getItem('user');
+        return user ? JSON.parse(user) : null;
+    },
+    
+    setUser(user) {
+        localStorage.setItem('user', JSON.stringify(user));
+    },
+    
+    isAuthenticated() {
+        return !!this.getToken();
+    },
+    
+    getHeaders() {
+        const token = this.getToken();
+        return {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+        };
+    },
+    
+    getMultipartHeaders() {
+        const token = this.getToken();
+        return token ? { 'Authorization': `Bearer ${token}` } : {};
+    }
+};
+
+// API Service
+const API = {
+    // Products
+    async getProducts(filters = {}) {
+        try {
+            const params = new URLSearchParams();
+            if (filters.category && filters.category !== 'All') params.append('category', filters.category);
+            if (filters.condition) params.append('condition', filters.condition);
+            if (filters.maxPrice) params.append('maxPrice', filters.maxPrice);
+            if (filters.sortBy) params.append('sortBy', filters.sortBy);
+            if (filters.search) params.append('search', filters.search);
+            
+            const response = await fetch(`${API_URL}/products?${params}`);
+            if (!response.ok) throw new Error('Failed to fetch products');
+            return await response.json();
+        } catch (error) {
+            console.error('Get products error:', error);
+            return [];
+        }
+    },
+
+    async getProduct(id) {
+        try {
+            const response = await fetch(`${API_URL}/products/${id}`);
+            if (!response.ok) throw new Error('Product not found');
+            return await response.json();
+        } catch (error) {
+            console.error('Get product error:', error);
+            return null;
+        }
+    },
+
+    async createProduct(formData) {
+        try {
+            const response = await fetch(`${API_URL}/products`, {
+                method: 'POST',
+                headers: AuthService.getMultipartHeaders(),
+                body: formData
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to create product');
+            return data;
+        } catch (error) {
+            console.error('Create product error:', error);
+            throw error;
+        }
+    },
+
+    async addToFavorites(productId) {
+        try {
+            const response = await fetch(`${API_URL}/products/${productId}/favorite`, {
+                method: 'POST',
+                headers: AuthService.getHeaders()
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+            return data;
+        } catch (error) {
+            console.error('Add to favorites error:', error);
+            throw error;
+        }
+    },
+
+    async removeFromFavorites(productId) {
+        try {
+            const response = await fetch(`${API_URL}/products/${productId}/favorite`, {
+                method: 'DELETE',
+                headers: AuthService.getHeaders()
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+            return data;
+        } catch (error) {
+            console.error('Remove from favorites error:', error);
+            throw error;
+        }
+    },
+
+    async getFavorites() {
+        try {
+            const response = await fetch(`${API_URL}/products/favorites`, {
+                headers: AuthService.getHeaders()
+            });
+            if (!response.ok) throw new Error('Failed to fetch favorites');
+            return await response.json();
+        } catch (error) {
+            console.error('Get favorites error:', error);
+            return [];
+        }
+    },
+
+    // Notifications
+    async getNotifications() {
+        try {
+            const response = await fetch(`${API_URL}/notifications`, {
+                headers: AuthService.getHeaders()
+            });
+            if (!response.ok) throw new Error('Failed to fetch notifications');
+            return await response.json();
+        } catch (error) {
+            console.error('Get notifications error:', error);
+            return [];
+        }
+    },
+
+    async markNotificationAsRead(id) {
+        try {
+            const response = await fetch(`${API_URL}/notifications/${id}/read`, {
+                method: 'PUT',
+                headers: AuthService.getHeaders()
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Mark notification as read error:', error);
+        }
+    },
+
+    async markAllNotificationsAsRead() {
+        try {
+            const response = await fetch(`${API_URL}/notifications/read-all`, {
+                method: 'PUT',
+                headers: AuthService.getHeaders()
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Mark all notifications as read error:', error);
+        }
+    }
+};
+
 // Particle Animation
 const canvas = document.getElementById('particleCanvas');
 const ctx = canvas.getContext('2d');
@@ -70,114 +244,62 @@ const categories = [
     { name: 'Eyewear', emoji: '🕶️', gradient: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' }
 ];
 
-// Sample Products Data
-let products = [
-    {
-        id: 1,
-        name: 'Vintage Denim Jacket',
-        price: 45.99,
-        category: 'Tops',
-        condition: 'Like New',
-        usageTime: '6 months',
-        seller: 'Sarah M.',
-        image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400',
-        description: 'Classic vintage denim jacket in excellent condition. Perfect for layering.',
-        liked: false
-    },
-    {
-        id: 2,
-        name: 'Leather Ankle Boots',
-        price: 89.99,
-        category: 'Shoes',
-        condition: 'Good',
-        usageTime: '1 year',
-        seller: 'Michael R.',
-        image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=400',
-        description: 'Genuine leather ankle boots with minimal wear.',
-        liked: false
-    },
-    {
-        id: 3,
-        name: 'Floral Summer Dress',
-        price: 35.00,
-        category: 'Dresses',
-        condition: 'Like New',
-        usageTime: '3 months',
-        seller: 'Emma T.',
-        image: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=400',
-        description: 'Beautiful floral pattern, perfect for summer occasions.',
-        liked: false
-    },
-    {
-        id: 4,
-        name: 'Designer Handbag',
-        price: 120.00,
-        category: 'Bags',
-        condition: 'Good',
-        usageTime: '2 years',
-        seller: 'Olivia K.',
-        image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400',
-        description: 'Authentic designer handbag, well maintained.',
-        liked: false
-    },
-    {
-        id: 5,
-        name: 'Vintage Sunglasses',
-        price: 25.00,
-        category: 'Eyewear',
-        condition: 'Like New',
-        usageTime: '2 months',
-        seller: 'James L.',
-        image: 'https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=400',
-        description: 'Retro style sunglasses with UV protection.',
-        liked: false
-    },
-    {
-        id: 6,
-        name: 'High-Waisted Jeans',
-        price: 42.50,
-        category: 'Bottoms',
-        condition: 'Good',
-        usageTime: '8 months',
-        seller: 'Sophie B.',
-        image: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=400',
-        description: 'Trendy high-waisted jeans in great condition.',
-        liked: false
-    },
-    {
-        id: 7,
-        name: 'Pearl Necklace',
-        price: 55.00,
-        category: 'Accessories',
-        condition: 'Like New',
-        usageTime: '1 month',
-        seller: 'Isabella P.',
-        image: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=400',
-        description: 'Elegant pearl necklace, perfect for formal events.',
-        liked: false
-    },
-    {
-        id: 8,
-        name: 'Wool Winter Coat',
-        price: 95.00,
-        category: 'Tops',
-        condition: 'Good',
-        usageTime: '1 year',
-        seller: 'Ryan W.',
-        image: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?w=400',
-        description: 'Warm wool coat, ideal for cold weather.',
-        liked: false
-    }
-];
+// Products State
+let products = [];
+let userFavorites = new Set();
 
 // Filters State
 let filters = {
     category: 'All',
-    maxPrice: 1000,
+    maxPrice: 10000,
     conditions: [],
     sortBy: 'newest',
     searchQuery: ''
 };
+
+// Load products from backend
+async function loadProducts() {
+    try {
+        const filterParams = {
+            category: filters.category,
+            maxPrice: filters.maxPrice,
+            sortBy: filters.sortBy,
+            search: filters.searchQuery
+        };
+        
+        // Add condition filter if any selected
+        if (filters.conditions.length > 0) {
+            filterParams.condition = filters.conditions[0]; // API expects single condition
+        }
+
+        products = await API.getProducts(filterParams);
+        
+        // Load favorites if authenticated
+        if (AuthService.isAuthenticated()) {
+            await loadFavorites();
+        }
+        
+        renderProducts(products);
+    } catch (error) {
+        console.error('Error loading products:', error);
+        showNotification('Failed to load products', 'error');
+    }
+}
+
+// Load user favorites
+async function loadFavorites() {
+    try {
+        const favorites = await API.getFavorites();
+        userFavorites = new Set(favorites.map(fav => fav.product_id));
+    } catch (error) {
+        console.error('Error loading favorites:', error);
+    }
+}
+
+// Check if product is favorited
+function isFavorited(productId) {
+    return userFavorites.has(productId);
+}
 
 // Render Categories
 function renderCategories() {
@@ -204,7 +326,7 @@ function renderCategories() {
             document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             filters.category = btn.dataset.category;
-            filterProducts();
+            loadProducts();
         });
     });
 }
@@ -225,7 +347,7 @@ function renderConditionFilters() {
     container.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
         checkbox.addEventListener('change', () => {
             filters.conditions = Array.from(container.querySelectorAll('input:checked')).map(cb => cb.value);
-            filterProducts();
+            loadProducts();
         });
     });
 }
@@ -249,163 +371,213 @@ function renderProducts(productsToRender) {
     grid.style.display = 'grid';
     noProducts.style.display = 'none';
     
-    grid.innerHTML = productsToRender.map(product => `
-        <div class="product-card" data-id="${product.id}">
-            <div class="product-image-container">
-                <img src="${product.image}" alt="${product.name}" class="product-image">
-                <span class="product-condition ${getConditionClass(product.condition)}">${product.condition}</span>
-                <button class="product-like-btn ${product.liked ? 'liked' : ''}" onclick="toggleLike(event, ${product.id})">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="${product.liked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-                    </svg>
-                </button>
-            </div>
-            <div class="product-info">
-                <div class="product-name">${product.name}</div>
-                <div class="product-category">${product.category}</div>
-                <div class="product-usage">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <path d="M12 6v6l4 2"></path>
-                    </svg>
-                    Used for ${product.usageTime}
+    grid.innerHTML = productsToRender.map(product => {
+        const liked = isFavorited(product.id);
+        const sellerName = product.profiles?.username || 'Anonymous';
+        
+        return `
+            <div class="product-card" data-id="${product.id}">
+                <div class="product-image-container">
+                    <img src="${product.image_url || 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=400'}" alt="${product.name}" class="product-image">
+                    <span class="product-condition ${getConditionClass(product.condition)}">${product.condition}</span>
+                    <button class="product-like-btn ${liked ? 'liked' : ''}" onclick="toggleLike(event, '${product.id}')">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="${liked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                        </svg>
+                    </button>
                 </div>
-                <div class="product-footer">
-                    <span class="product-price">BDT ${product.price.toFixed(2)}</span>
-                    <span class="product-seller">${product.seller}</span>
+                <div class="product-info">
+                    <div class="product-name">${product.name}</div>
+                    <div class="product-category">${product.category}</div>
+                    <div class="product-usage">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M12 6v6l4 2"></path>
+                        </svg>
+                        Used for ${product.usage_time}
+                    </div>
+                    <div class="product-footer">
+                        <span class="product-price">BDT ${parseFloat(product.price).toFixed(2)}</span>
+                        <span class="product-seller">${sellerName}</span>
+                    </div>
                 </div>
             </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
     
     // Add click handlers for product cards
     document.querySelectorAll('.product-card').forEach(card => {
         card.addEventListener('click', (e) => {
             if (!e.target.closest('.product-like-btn')) {
-                const productId = parseInt(card.dataset.id);
+                const productId = card.dataset.id;
                 showProductDetail(productId);
             }
         });
     });
 }
 
-// Filter Products
-function filterProducts() {
-    let filtered = products;
-    
-    // Filter by category
-    if (filters.category !== 'All') {
-        filtered = filtered.filter(p => p.category === filters.category);
-    }
-    
-    // Filter by price
-    filtered = filtered.filter(p => p.price <= filters.maxPrice);
-    
-    // Filter by condition
-    if (filters.conditions.length > 0) {
-        filtered = filtered.filter(p => filters.conditions.includes(p.condition));
-    }
-    
-    // Filter by search query
-    if (filters.searchQuery) {
-        filtered = filtered.filter(p => 
-            p.name.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
-            p.description.toLowerCase().includes(filters.searchQuery.toLowerCase())
-        );
-    }
-    
-    // Sort products
-    switch (filters.sortBy) {
-        case 'price-low':
-            filtered.sort((a, b) => a.price - b.price);
-            break;
-        case 'price-high':
-            filtered.sort((a, b) => b.price - a.price);
-            break;
-        case 'newest':
-        default:
-            filtered.sort((a, b) => b.id - a.id);
-    }
-    
-    renderProducts(filtered);
-}
-
 // Toggle Like
-function toggleLike(event, productId) {
+async function toggleLike(event, productId) {
     event.stopPropagation();
-    const product = products.find(p => p.id === productId);
-    if (product) {
-        product.liked = !product.liked;
-        filterProducts();
+    
+    if (!AuthService.isAuthenticated()) {
+        showNotification('Please login to add favorites', 'error');
+        return;
+    }
+    
+    try {
+        const isLiked = userFavorites.has(productId);
+        
+        if (isLiked) {
+            await API.removeFromFavorites(productId);
+            userFavorites.delete(productId);
+            showNotification('Removed from favorites', 'success');
+        } else {
+            await API.addToFavorites(productId);
+            userFavorites.add(productId);
+            showNotification('Added to favorites', 'success');
+        }
+        
+        // Re-render to update UI
+        renderProducts(products);
+    } catch (error) {
+        console.error('Toggle like error:', error);
+        showNotification(error.message || 'Failed to update favorites', 'error');
     }
 }
 
 // Show Product Detail
-function showProductDetail(productId) {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
-    
-    const modal = document.getElementById('detailModal');
-    const detailsContainer = document.getElementById('productDetails');
-    
-    detailsContainer.innerHTML = `
-        <div class="detail-grid">
-            <img src="${product.image}" alt="${product.name}" class="detail-image">
-            <div class="detail-content">
-                <div class="detail-header">
-                    <h3 class="detail-name">${product.name}</h3>
-                    <span class="detail-condition ${getConditionClass(product.condition)}">${product.condition}</span>
-                </div>
-                <div class="detail-price">BDT ${product.price.toFixed(2)}</div>
-                <div class="detail-meta">
-                    <div class="detail-meta-item">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="12" cy="7" r="4"></circle>
-                        </svg>
-                        <span>Seller: ${product.seller}</span>
+async function showProductDetail(productId) {
+    try {
+        const product = await API.getProduct(productId);
+        if (!product) {
+            showNotification('Product not found', 'error');
+            return;
+        }
+        
+        const modal = document.getElementById('detailModal');
+        const detailsContainer = document.getElementById('productDetails');
+        const sellerName = product.profiles?.username || 'Anonymous';
+        
+        detailsContainer.innerHTML = `
+            <div class="detail-grid">
+                <img src="${product.image_url || 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=400'}" alt="${product.name}" class="detail-image">
+                <div class="detail-content">
+                    <div class="detail-header">
+                        <h3 class="detail-name">${product.name}</h3>
+                        <span class="detail-condition ${getConditionClass(product.condition)}">${product.condition}</span>
                     </div>
-                    <div class="detail-meta-item">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <path d="M12 6v6l4 2"></path>
-                        </svg>
-                        <span>Used for ${product.usageTime}</span>
+                    <div class="detail-price">BDT ${parseFloat(product.price).toFixed(2)}</div>
+                    <div class="detail-meta">
+                        <div class="detail-meta-item">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            <span>Seller: ${sellerName}</span>
+                        </div>
+                        <div class="detail-meta-item">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="M12 6v6l4 2"></path>
+                            </svg>
+                            <span>Used for ${product.usage_time}</span>
+                        </div>
+                        <div class="detail-meta-item">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            </svg>
+                            <span>Category: ${product.category}</span>
+                        </div>
+                        ${product.size ? `
+                        <div class="detail-meta-item">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            </svg>
+                            <span>Size: ${product.size}</span>
+                        </div>
+                        ` : ''}
                     </div>
-                    <div class="detail-meta-item">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                        </svg>
-                        <span>Category: ${product.category}</span>
+                    <div class="detail-description">
+                        <h3>Description</h3>
+                        <p>${product.description}</p>
                     </div>
-                </div>
-                <div class="detail-description">
-                    <h3>Description</h3>
-                    <p>${product.description}</p>
-                </div>
-                <div class="detail-actions">
-                    <button class="btn-primary">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="9" cy="21" r="1"></circle>
-                            <circle cx="20" cy="21" r="1"></circle>
-                            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-                        </svg>
-                        Buy Now
-                    </button>
-                    <button class="btn-outline">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7 10 12 15 17 10"></polyline>
-                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                        </svg>
-                        Message Seller
-                    </button>
+                    <div class="detail-actions">
+                        <button class="btn-primary" onclick="handleBuyNow('${product.id}')">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="9" cy="21" r="1"></circle>
+                                <circle cx="20" cy="21" r="1"></circle>
+                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                            </svg>
+                            Buy Now
+                        </button>
+                        <button class="btn-outline" onclick="handleMessageSeller('${product.user_id}', '${product.id}')">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            Message Seller
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
+        `;
+        
+        modal.classList.add('active');
+    } catch (error) {
+        console.error('Show product detail error:', error);
+        showNotification('Failed to load product details', 'error');
+    }
+}
+
+// Handle Buy Now
+function handleBuyNow(productId) {
+    if (!AuthService.isAuthenticated()) {
+        showNotification('Please login to purchase items', 'error');
+        window.location.href = 'login.html';
+        return;
+    }
+    
+    // TODO: Implement checkout flow
+    showNotification('Checkout feature coming soon!', 'info');
+}
+
+// Handle Message Seller
+function handleMessageSeller(sellerId, productId) {
+    if (!AuthService.isAuthenticated()) {
+        showNotification('Please login to message sellers', 'error');
+        window.location.href = 'login.html';
+        return;
+    }
+    
+    // TODO: Implement messaging
+    showNotification('Messaging feature coming soon!', 'info');
+}
+
+// Show Notification
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6'};
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        animation: slideIn 0.3s ease;
     `;
     
-    modal.classList.add('active');
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
 }
 
 // Price Range Slider
@@ -414,41 +586,44 @@ const maxPriceDisplay = document.getElementById('maxPrice');
 
 priceSlider.addEventListener('input', (e) => {
     filters.maxPrice = parseInt(e.target.value);
-    maxPriceDisplay.textContent = `$${filters.maxPrice}`;
-    filterProducts();
+    maxPriceDisplay.textContent = `BDT ${filters.maxPrice}`;
+    loadProducts();
 });
 
 // Sort By
 document.getElementById('sortBy').addEventListener('change', (e) => {
     filters.sortBy = e.target.value;
-    filterProducts();
+    loadProducts();
 });
 
 // Search
 document.getElementById('searchInput').addEventListener('input', (e) => {
     filters.searchQuery = e.target.value;
-    filterProducts();
+    clearTimeout(window.searchTimeout);
+    window.searchTimeout = setTimeout(() => {
+        loadProducts();
+    }, 500); // Debounce search
 });
 
 // Clear Filters
 document.getElementById('clearFilters').addEventListener('click', () => {
     filters = {
         category: 'All',
-        maxPrice: 1000,
+        maxPrice: 10000,
         conditions: [],
         sortBy: 'newest',
         searchQuery: ''
     };
     
-    priceSlider.value = 1000;
-    maxPriceDisplay.textContent = '$1000';
+    priceSlider.value = 10000;
+    maxPriceDisplay.textContent = 'BDT 10000';
     document.getElementById('sortBy').value = 'newest';
     document.getElementById('searchInput').value = '';
     document.querySelectorAll('.condition-filter input').forEach(cb => cb.checked = false);
     document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelector('.category-btn[data-category="All"]').classList.add('active');
     
-    filterProducts();
+    loadProducts();
 });
 
 // Sell Modal
@@ -459,6 +634,11 @@ const cancelSell = document.getElementById('cancelSell');
 const sellForm = document.getElementById('sellForm');
 
 sellBtn.addEventListener('click', () => {
+    if (!AuthService.isAuthenticated()) {
+        showNotification('Please login to sell items', 'error');
+        window.location.href = 'login.html';
+        return;
+    }
     sellModal.classList.add('active');
 });
 
@@ -503,30 +683,42 @@ removeImageBtn.addEventListener('click', (e) => {
 });
 
 // Sell Form Submit
-sellForm.addEventListener('submit', (e) => {
+sellForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const newProduct = {
-        id: products.length + 1,
-        name: document.getElementById('productName').value,
-        price: parseFloat(document.getElementById('productPrice').value),
-        category: document.getElementById('productCategory').value,
-        condition: document.getElementById('productCondition').value,
-        usageTime: document.getElementById('productUsageTime').value,
-        seller: 'You',
-        image: previewImg.src || 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=400',
-        description: document.getElementById('productDescription').value,
-        liked: false
-    };
+    if (!AuthService.isAuthenticated()) {
+        showNotification('Please login to sell items', 'error');
+        return;
+    }
     
-    products.unshift(newProduct);
-    filterProducts();
-    sellModal.classList.remove('active');
-    sellForm.reset();
-    uploadPrompt.style.display = 'block';
-    imagePreview.style.display = 'none';
-    
-    alert('Your item has been listed successfully!');
+    try {
+        const formData = new FormData();
+        formData.append('name', document.getElementById('productName').value);
+        formData.append('description', document.getElementById('productDescription').value);
+        formData.append('price', document.getElementById('productPrice').value);
+        formData.append('category', document.getElementById('productCategory').value);
+        formData.append('condition', document.getElementById('productCondition').value);
+        formData.append('size', document.getElementById('productSize').value);
+        formData.append('usageTime', document.getElementById('productUsageTime').value);
+        
+        if (imageInput.files[0]) {
+            formData.append('image', imageInput.files[0]);
+        }
+        
+        await API.createProduct(formData);
+        
+        showNotification('Product listed successfully!', 'success');
+        sellModal.classList.remove('active');
+        sellForm.reset();
+        uploadPrompt.style.display = 'block';
+        imagePreview.style.display = 'none';
+        
+        // Reload products
+        loadProducts();
+    } catch (error) {
+        console.error('Create product error:', error);
+        showNotification(error.message || 'Failed to create product', 'error');
+    }
 });
 
 // Detail Modal Close
@@ -544,7 +736,42 @@ window.addEventListener('click', (e) => {
     }
 });
 
-// Initialize
-renderCategories();
-renderConditionFilters();
-filterProducts();
+// Add CSS for notifications
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(style);
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    renderCategories();
+    renderConditionFilters();
+    loadProducts();
+    
+    // Update UI based on auth state
+    const user = AuthService.getUser();
+    if (user) {
+        console.log('User logged in:', user.email);
+    }
+});
