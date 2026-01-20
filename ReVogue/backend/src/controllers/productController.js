@@ -1,78 +1,47 @@
-// src/controllers/productController.js - SIMPLE VERSION THAT WORKS
+// src/controllers/productController.js - FIXED VERSION
 const { supabase } = require('../config/supabase');
 
-// Get All Products (Public - for index page)
+// Get all products with filters
 exports.getAllProducts = async (req, res) => {
     try {
-        const { 
-            category, 
-            condition, 
-            min_price, 
-            max_price, 
-            search, 
-            sort = 'created_at',  // Default to created_at
-            order = 'desc' 
-        } = req.query;
-
-        // Map frontend sort values to database columns
-        const sortMapping = {
-            'newest': 'created_at',
-            'oldest': 'created_at',
-            'price-low': 'price',
-            'price-high': 'price',
-            'created_at': 'created_at',
-            'price': 'price'
-        };
-
-        // Map frontend order values
-        const orderMapping = {
-            'newest': 'desc',
-            'oldest': 'asc',
-            'price-low': 'asc',
-            'price-high': 'desc'
-        };
-
-        // Get the actual database column to sort by
-        const sortColumn = sortMapping[sort] || 'created_at';
-        
-        // Get the sort direction
-        let sortOrder = order;
-        if (orderMapping[sort]) {
-            sortOrder = orderMapping[sort];
-        }
+        const { category, condition, max_price, sort, search } = req.query;
 
         let query = supabase
             .from('products')
             .select(`
                 *,
                 profiles (
-                    id,
-                    full_name,
                     username,
+                    full_name,
                     avatar_url
                 )
             `)
-            .eq('status', 'available');
+            .eq('status', 'active');
 
-        // Apply filters
         if (category && category !== 'All') {
             query = query.eq('category', category);
         }
+
         if (condition) {
             query = query.eq('condition', condition);
         }
-        if (min_price) {
-            query = query.gte('price', parseFloat(min_price));
-        }
+
         if (max_price) {
             query = query.lte('price', parseFloat(max_price));
         }
+
         if (search) {
             query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`);
         }
 
-        // Apply sorting
-        query = query.order(sortColumn, { ascending: sortOrder === 'asc' });
+        // Sorting
+        if (sort === 'price-low') {
+            query = query.order('price', { ascending: true });
+        } else if (sort === 'price-high') {
+            query = query.order('price', { ascending: false });
+        } else {
+            query = query.order('created_at', { ascending: false });
+        }
 
         const { data, error } = await query;
 
@@ -86,34 +55,23 @@ exports.getAllProducts = async (req, res) => {
         console.error('Get products error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to fetch products',
-            data: []
+            error: 'Failed to fetch products'
         });
     }
 };
 
-// Get Single Product by ID
+// Get single product by ID
 exports.getProductById = async (req, res) => {
     try {
         const { id } = req.params;
-
-        // Validate UUID format
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(id)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid product ID format'
-            });
-        }
 
         const { data, error } = await supabase
             .from('products')
             .select(`
                 *,
                 profiles (
-                    id,
-                    full_name,
                     username,
+                    full_name,
                     avatar_url
                 )
             `)
@@ -122,11 +80,12 @@ exports.getProductById = async (req, res) => {
 
         if (error) throw error;
 
-        // Increment views
-        await supabase
-            .from('products')
-            .update({ views: (data.views || 0) + 1 })
-            .eq('id', id);
+        if (!data) {
+            return res.status(404).json({
+                success: false,
+                error: 'Product not found'
+            });
+        }
 
         res.json({
             success: true,
@@ -134,34 +93,46 @@ exports.getProductById = async (req, res) => {
         });
     } catch (error) {
         console.error('Get product error:', error);
-        res.status(404).json({
+        res.status(500).json({
             success: false,
-            error: 'Product not found'
+            error: 'Failed to fetch product'
         });
     }
 };
 
-// Create Product
+// Create new product
 exports.createProduct = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { 
+        
+        // IMPORTANT: Log the entire body to see what we're receiving
+        console.log('RAW Request Body:', req.body);
+        console.log('Request File:', req.file);
+        
+        const { name, description, price, category, condition, size, usageTime, usage_time } = req.body;
+        const file = req.file;
+
+        // Use either usageTime or usage_time (frontend might send either)
+        const finalUsageTime = usageTime || usage_time;
+        
+        console.log('Creating product with data:', { 
             name, 
             description, 
             price, 
             category, 
             condition, 
             size, 
-            usage_time 
-        } = req.body;
-        
-        const file = req.file;
+            usageTime, 
+            usage_time,
+            finalUsageTime 
+        });
 
-        // Validate required fields
-        if (!name || !description || !price || !category || !condition) {
+        // Validation
+        if (!name || !description || !price || !category || !condition || !finalUsageTime) {
             return res.status(400).json({
                 success: false,
-                error: 'Missing required fields'
+                error: 'Missing required fields',
+                received: { name, description, price, category, condition, size, usageTime, usage_time }
             });
         }
 
@@ -171,17 +142,17 @@ exports.createProduct = async (req, res) => {
         if (file) {
             const fileExt = file.originalname.split('.').pop();
             const fileName = `${userId}-${Date.now()}.${fileExt}`;
-            const filePath = `products/${fileName}`;
+            const filePath = `${userId}/${fileName}`;
 
             const { error: uploadError } = await supabase.storage
                 .from('products')
                 .upload(filePath, file.buffer, {
                     contentType: file.mimetype,
-                    upsert: true
+                    upsert: false
                 });
 
             if (uploadError) {
-                console.error('Upload error:', uploadError);
+                console.error('Image upload error:', uploadError);
                 throw uploadError;
             }
 
@@ -192,77 +163,105 @@ exports.createProduct = async (req, res) => {
             imageUrl = publicUrl;
         }
 
-        // Create product
+        // FIXED: Map usageTime to usage_time for database
+        const productData = {
+            user_id: userId,
+            name: name.trim(),
+            description: description.trim(),
+            price: parseFloat(price),
+            category: category.trim(),
+            condition: condition.trim(),
+            size: size ? size.trim() : null,
+            usage_time: finalUsageTime.trim(), // FIXED: use finalUsageTime
+            image_url: imageUrl,
+            status: 'active'
+        };
+
+        console.log('Inserting product data:', productData);
+
         const { data, error } = await supabase
             .from('products')
-            .insert([{
-                user_id: userId,
-                name,
-                description,
-                price: parseFloat(price),
-                category,
-                condition,
-                size: size || null,
-                usage_time: usage_time || null,
-                image_url: imageUrl,
-                status: 'available',
-                views: 0
-            }])
+            .insert([productData])
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database insert error:', error);
+            throw error;
+        }
 
         res.status(201).json({
             success: true,
-            message: 'Product listed successfully',
+            message: 'Product created successfully',
             data
         });
     } catch (error) {
         console.error('Create product error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to create product'
+            error: error.message || 'Failed to create product'
         });
     }
 };
 
-// Update Product
+// Update product
 exports.updateProduct = async (req, res) => {
     try {
         const userId = req.user.id;
         const { id } = req.params;
-        const { name, description, price, category, condition, size, usage_time, status } = req.body;
+        const { name, description, price, category, condition, size, usageTime } = req.body;
         const file = req.file;
 
-        // Check if user owns the product
-        const { data: product, error: fetchError } = await supabase
+        // Verify ownership
+        const { data: existingProduct, error: fetchError } = await supabase
             .from('products')
-            .select('*')
+            .select('user_id, image_url')
             .eq('id', id)
-            .eq('user_id', userId)
             .single();
 
-        if (fetchError || !product) {
+        if (fetchError || !existingProduct) {
             return res.status(404).json({
                 success: false,
-                error: 'Product not found or you do not have permission'
+                error: 'Product not found'
             });
         }
 
-        let imageUrl = product.image_url;
+        if (existingProduct.user_id !== userId) {
+            return res.status(403).json({
+                success: false,
+                error: 'Unauthorized'
+            });
+        }
 
-        // Upload new image if provided
+        const updates = {};
+        if (name) updates.name = name.trim();
+        if (description) updates.description = description.trim();
+        if (price) updates.price = parseFloat(price);
+        if (category) updates.category = category.trim();
+        if (condition) updates.condition = condition.trim();
+        if (size !== undefined) updates.size = size ? size.trim() : null;
+        if (usageTime) updates.usage_time = usageTime.trim(); // FIXED
+
+        // Handle image upload
         if (file) {
+            // Delete old image if exists
+            if (existingProduct.image_url) {
+                const oldImagePath = existingProduct.image_url.split('/').slice(-2).join('/');
+                await supabase.storage
+                    .from('products')
+                    .remove([oldImagePath]);
+            }
+
+            // Upload new image
             const fileExt = file.originalname.split('.').pop();
             const fileName = `${userId}-${Date.now()}.${fileExt}`;
-            const filePath = `products/${fileName}`;
+            const filePath = `${userId}/${fileName}`;
 
             const { error: uploadError } = await supabase.storage
                 .from('products')
                 .upload(filePath, file.buffer, {
                     contentType: file.mimetype,
-                    upsert: true
+                    upsert: false
                 });
 
             if (uploadError) throw uploadError;
@@ -271,29 +270,13 @@ exports.updateProduct = async (req, res) => {
                 .from('products')
                 .getPublicUrl(filePath);
 
-            imageUrl = publicUrl;
+            updates.image_url = publicUrl;
         }
-
-        // Build update object
-        const updateData = {
-            updated_at: new Date().toISOString()
-        };
-
-        if (name) updateData.name = name;
-        if (description !== undefined) updateData.description = description;
-        if (price) updateData.price = parseFloat(price);
-        if (category) updateData.category = category;
-        if (condition) updateData.condition = condition;
-        if (size !== undefined) updateData.size = size;
-        if (usage_time !== undefined) updateData.usage_time = usage_time;
-        if (status) updateData.status = status;
-        if (imageUrl) updateData.image_url = imageUrl;
 
         const { data, error } = await supabase
             .from('products')
-            .update(updateData)
+            .update(updates)
             .eq('id', id)
-            .eq('user_id', userId)
             .select()
             .single();
 
@@ -313,32 +296,45 @@ exports.updateProduct = async (req, res) => {
     }
 };
 
-// Delete Product
+// Delete product
 exports.deleteProduct = async (req, res) => {
     try {
         const userId = req.user.id;
         const { id } = req.params;
 
-        // Check if user owns the product
+        // Verify ownership
         const { data: product, error: fetchError } = await supabase
             .from('products')
-            .select('*')
+            .select('user_id, image_url')
             .eq('id', id)
-            .eq('user_id', userId)
             .single();
 
         if (fetchError || !product) {
             return res.status(404).json({
                 success: false,
-                error: 'Product not found or you do not have permission'
+                error: 'Product not found'
             });
+        }
+
+        if (product.user_id !== userId) {
+            return res.status(403).json({
+                success: false,
+                error: 'Unauthorized'
+            });
+        }
+
+        // Delete image from storage
+        if (product.image_url) {
+            const imagePath = product.image_url.split('/').slice(-2).join('/');
+            await supabase.storage
+                .from('products')
+                .remove([imagePath]);
         }
 
         const { error } = await supabase
             .from('products')
             .delete()
-            .eq('id', id)
-            .eq('user_id', userId);
+            .eq('id', id);
 
         if (error) throw error;
 
