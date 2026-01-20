@@ -10,7 +10,7 @@ exports.getDashboardStats = async (req, res) => {
             .from('products')
             .select('*', { count: 'exact', head: true })
             .eq('user_id', userId)
-            .eq('status', 'active');
+            .eq('status', 'available');
 
         const { count: favoritesCount } = await supabase
             .from('favorites')
@@ -425,7 +425,7 @@ exports.uploadAvatar = async (req, res) => {
         const fileName = `${userId}-${Date.now()}.${fileExt}`;
         const filePath = `${userId}/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabaseAdmin.storage
             .from('avatars')
             .upload(filePath, file.buffer, {
                 contentType: file.mimetype,
@@ -434,7 +434,7 @@ exports.uploadAvatar = async (req, res) => {
 
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage
+        const { data: { publicUrl } } = supabaseAdmin.storage
             .from('avatars')
             .getPublicUrl(filePath);
 

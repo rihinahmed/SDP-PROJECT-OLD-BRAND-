@@ -1,11 +1,12 @@
 // src/controllers/productController.js - FIXED VERSION
-const { supabase } = require('../config/supabase');
+const { supabase, supabaseAdmin } = require('../config/supabase');
 
 // Get all products with filters
 exports.getAllProducts = async (req, res) => {
     try {
         const { category, condition, max_price, sort, search } = req.query;
 
+        // Use regular supabase client for public read operations
         let query = supabase
             .from('products')
             .select(`
@@ -16,7 +17,7 @@ exports.getAllProducts = async (req, res) => {
                     avatar_url
                 )
             `)
-            .eq('status', 'active');
+            .eq('status', 'available');
 
         if (category && category !== 'All') {
             query = query.eq('category', category);
@@ -65,6 +66,7 @@ exports.getProductById = async (req, res) => {
     try {
         const { id } = req.params;
 
+        // Use regular supabase client for public read
         const { data, error } = await supabase
             .from('products')
             .select(`
@@ -174,12 +176,12 @@ exports.createProduct = async (req, res) => {
             size: size ? size.trim() : null,
             usage_time: finalUsageTime.trim(), // FIXED: use finalUsageTime
             image_url: imageUrl,
-            status: 'active'
+            status: 'available'
         };
 
         console.log('Inserting product data:', productData);
 
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('products')
             .insert([productData])
             .select()
@@ -247,7 +249,7 @@ exports.updateProduct = async (req, res) => {
             // Delete old image if exists
             if (existingProduct.image_url) {
                 const oldImagePath = existingProduct.image_url.split('/').slice(-2).join('/');
-                await supabase.storage
+                await supabaseAdmin.storage
                     .from('products')
                     .remove([oldImagePath]);
             }
@@ -257,7 +259,7 @@ exports.updateProduct = async (req, res) => {
             const fileName = `${userId}-${Date.now()}.${fileExt}`;
             const filePath = `${userId}/${fileName}`;
 
-            const { error: uploadError } = await supabase.storage
+            const { error: uploadError } = await supabaseAdmin.storage
                 .from('products')
                 .upload(filePath, file.buffer, {
                     contentType: file.mimetype,
@@ -266,7 +268,7 @@ exports.updateProduct = async (req, res) => {
 
             if (uploadError) throw uploadError;
 
-            const { data: { publicUrl } } = supabase.storage
+            const { data: { publicUrl } } = supabaseAdmin.storage
                 .from('products')
                 .getPublicUrl(filePath);
 
@@ -326,7 +328,7 @@ exports.deleteProduct = async (req, res) => {
         // Delete image from storage
         if (product.image_url) {
             const imagePath = product.image_url.split('/').slice(-2).join('/');
-            await supabase.storage
+            await supabaseAdmin.storage
                 .from('products')
                 .remove([imagePath]);
         }
