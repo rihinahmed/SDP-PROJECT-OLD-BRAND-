@@ -1204,6 +1204,7 @@ body {
     cursor: pointer;
     transition: all 0.2s;
     font-weight: 500;
+    justify-content: center;
 }
 
 .btn-primary:hover {

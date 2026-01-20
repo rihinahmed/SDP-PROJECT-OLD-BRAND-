@@ -1,4 +1,4 @@
-// src/config/supabase.js - FIXED VERSION
+// src/config/supabase.js - CORRECT VERSION
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -12,16 +12,41 @@ if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
     process.exit(1);
 }
 
-// IMPORTANT: For backend operations, use service key to bypass RLS
-// This is the main client that should be used in controllers
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+// Create client factory that sets JWT per request
+function getSupabaseClient(accessToken = null) {
+    if (accessToken) {
+        // For authenticated requests - use service key but set JWT
+        return createClient(supabaseUrl, supabaseServiceKey, {
+            global: {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`
+                }
+            },
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false
+            }
+        });
+    }
+    
+    // For unauthenticated/public requests - use anon key
+    return createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    });
+}
+
+// Default client for public operations (uses anon key)
+const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
         autoRefreshToken: false,
         persistSession: false
     }
 });
 
-// Admin client (same as supabase for backend)
+// Admin client for operations that need to bypass RLS (uses service key)
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
         autoRefreshToken: false,
@@ -29,6 +54,6 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
     }
 });
 
-console.log('✅ Supabase initialized with service key');
+console.log('✅ Supabase initialized');
 
-module.exports = { supabase, supabaseAdmin };
+module.exports = { supabase, supabaseAdmin, getSupabaseClient };
