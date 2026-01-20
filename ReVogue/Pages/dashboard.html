@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - ReVogue</title>
+    <title>Dashboard - The Renewed Studio</title>
     <link rel="stylesheet" href="/ReVogue/css/dashboard.css">
+    <link rel="stylesheet" href="/ReVogue/css/indexanimations.css">
 </head>
 <body>
     <!-- Particle Background -->
@@ -15,20 +16,17 @@
         <div class="header-container">
             <div class="header-left">
                 <div class="logo-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
-                        <line x1="3" y1="6" x2="21" y2="6"></line>
-                        <path d="M16 10a4 4 0 0 1-8 0"></path>
-                    </svg>
+                    <a href="index.html">
+                        <img src="/ReVogue/assets/images/logo-removebg-preview.png" alt="Logo" height="40">
+                    </a>
                 </div>
-                <h1 class="logo-text">ReVogue</h1>
             </div>
 
             <nav class="nav-links">
                 <a href="index.html" class="nav-link">Home</a>
-                <a href="#" class="nav-link">Shop</a>
-                <a href="#" class="nav-link">About</a>
-                <a href="#" class="nav-link">Contact</a>
+                <a href="shop.html" class="nav-link">Shop</a>
+                <a href="about.html" class="nav-link">About</a>
+                <a href="contact.html" class="nav-link">Contact</a>
             </nav>
 
             <div class="search-container">
@@ -40,12 +38,33 @@
             </div>
 
             <div class="header-actions">
-                <button class="icon-btn" title="Favorites">
+                <button class="btn-primary" id="sellBtn">Sell Item</button>
+                
+                <!-- Notifications Button -->
+                <button class="icon-btn" id="notificationBtn" title="Notifications">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                     </svg>
+                    <span class="notification-badge" id="notificationBadge">3</span>
                 </button>
-                <a href="login.html" class="icon-btn active" title="Dashboard">
+                
+                <!-- Messages Button -->
+                <button class="icon-btn" id="messagesBtn" title="Messages">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span class="notification-badge" id="messagesBadge">2</span>
+                </button>
+                
+                <a href="/ReVogue/Pages/favorite.html">
+                    <button class="icon-btn" title="Favorites">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                        </svg>
+                    </button>
+                </a>
+                <a href="dashboard.html" class="icon-btn" title="Dashboard">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                         <circle cx="12" cy="7" r="4"></circle>
@@ -61,14 +80,11 @@
         <div class="dashboard-hero-content">
             <div class="user-profile-header">
                 <div class="user-avatar">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="12" cy="7" r="4"></circle>
-                    </svg>
+                    <img src="/ReVogue/assets/images/ajmain.jpeg" alt="User Avatar" id="userAvatarImg" class="avatar-image">
                 </div>
                 <div class="user-info">
-                    <h2 class="user-name" id="userName">Sarah Johnson</h2>
-                    <p class="user-email" id="userEmail">sarah.j@example.com</p>
+                    <h2 class="user-name" id="userName">Ajmain Taki</h2>
+                    <p class="user-email" id="userEmail">ajmaintaki@gmail.com</p>
                     <div class="user-badges">
                         <span class="badge badge-verified">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -125,7 +141,7 @@
                         </svg>
                     </div>
                     <div class="stat-info">
-                        <div class="stat-value" id="totalEarnings">$1,245</div>
+                        <div class="stat-value" id="totalEarnings">BDT 1,245</div>
                         <div class="stat-label">Total Earnings</div>
                     </div>
                 </div>
@@ -228,20 +244,33 @@
                             <h4 class="settings-section-title">Profile Information</h4>
                             <div class="settings-form">
                                 <div class="form-group">
+                                    <label class="form-label">Profile Picture</label>
+                                    <div class="profile-image-upload">
+                                        <div class="current-profile-image">
+                                            <img src="/ReVogue/assets/images/default-avatar.png" alt="Profile" id="settingsAvatarPreview" class="settings-avatar-preview">
+                                        </div>
+                                        <div class="upload-controls">
+                                            <input type="file" id="profileImageInput" accept="image/*" style="display: none;">
+                                            <button type="button" class="btn-secondary" id="uploadImageBtn">Choose Image</button>
+                                            <button type="button" class="btn-secondary" id="removeImageBtn">Remove</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
                                     <label class="form-label">Full Name</label>
-                                    <input type="text" value="Sarah Johnson" id="settingsName">
+                                    <input type="text" value="Ajmain Taki" id="settingsName" readonly>
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Email</label>
-                                    <input type="email" value="sarah.j@example.com" id="settingsEmail">
+                                    <input type="email" value="ajmaintaki@gmail.com" id="settingsEmail">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Phone Number</label>
-                                    <input type="tel" value="+1 (555) 123-4567" id="settingsPhone">
+                                    <input type="tel" value="01777717777" id="settingsPhone">
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Location</label>
-                                    <input type="text" value="New York, NY" id="settingsLocation">
+                                    <input type="text" value="Mirpur 12, Dhaka" id="settingsLocation">
                                 </div>
                                 <button class="btn-primary">Save Changes</button>
                             </div>
@@ -316,7 +345,7 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label class="form-label">Price ($)</label>
+                        <label class="form-label">Price (BDT)</label>
                         <input type="number" id="editPrice" step="0.01" required>
                     </div>
                     <div class="form-group">
@@ -337,7 +366,113 @@
         </div>
     </div>
 
+        <!-- Notifications Panel -->
+<div id="notificationsPanel" class="dropdown-panel">
+    <div class="panel-header">
+        <h3>Notifications</h3>
+        <button class="text-btn" id="markAllRead">Mark all read</button>
+    </div>
+    <div class="panel-content" id="notificationsList">
+        <!-- Notifications will be generated by JavaScript -->
+    </div>
+</div>
+
+<!-- Messages Panel -->
+<div id="messagesPanel" class="dropdown-panel">
+    <div class="panel-header">
+        <h3>Messages</h3>
+        <button class="text-btn" id="newMessageBtn">New</button>
+    </div>
+    <div class="panel-content" id="messagesList">
+        <!-- Messages will be generated by JavaScript -->
+    </div>
+</div>
+
+<!-- Message Chat Modal -->
+<div id="chatModal" class="modal">
+    <div class="modal-content modal-chat">
+        <div class="modal-header">
+            <div class="chat-user-info">
+                <div class="chat-avatar" id="chatAvatar"></div>
+                <div>
+                    <h2 class="modal-title" id="chatUsername">User</h2>
+                    <span class="chat-status">Online</span>
+                </div>
+            </div>
+            <button class="modal-close" id="closeChatModal">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <!-- Messages will be generated here -->
+        </div>
+        <div class="chat-input-container">
+            <input type="text" id="chatInput" placeholder="Type a message..." class="chat-input">
+            <button class="btn-send" id="sendMessageBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Live Chat Widget -->
+<div id="liveChatWidget" class="live-chat-widget">
+    <button id="liveChatToggle" class="live-chat-toggle">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <span class="live-chat-badge">1</span>
+    </button>
+    
+    <div id="liveChatBox" class="live-chat-box">
+        <div class="live-chat-header">
+            <div class="live-chat-header-info">
+                <div class="live-chat-avatar">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h4>ReVogue Support</h4>
+                    <span class="support-status">● Online</span>
+                </div>
+            </div>
+            <button id="liveChatClose" class="live-chat-close-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="live-chat-messages" id="liveChatMessages">
+            <div class="live-chat-message support">
+                <div class="message-content">
+                    <p>Hello! 👋 Welcome to ReVogue. How can we help you today?</p>
+                    <span class="message-time">Just now</span>
+                </div>
+            </div>
+        </div>
+        <div class="live-chat-input-container">
+            <input type="text" id="liveChatInput" placeholder="Type your message..." class="live-chat-input">
+            <button id="liveChatSend" class="live-chat-send-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
     <script src="/ReVogue/js/dashboard.js"></script>
-    <script src="/ReVogue/js/particles.js"></script>
+    <script src="/ReVogue/js/messaging.js"></script>
+    <script src="/ReVogue/js/dashboardanimation.js"></script>
+    <script src="/ReVogue/js/indexanimation.js"></script>
 </body>
 </html>
