@@ -50,7 +50,7 @@ body {
     position: relative;
 }
 
-/* Particle Canvas */
+/* Particle  */
 #particleCanvas {
     position: fixed;
     top: 0;
@@ -251,6 +251,8 @@ body {
     z-index: 10;
 }
 
+
+/* container */
 .content-container {
     display: flex;
     gap: 2rem;
