@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Renewed Studio</title>
+    <link rel="stylesheet" href="/ReVogue/css/index.css">
+    <link rel="stylesheet" href="/ReVogue/css/indexanimations.css">
+</head>
+<body>
+    <!-- Particle Background -->
+    <canvas id="particleCanvas"></canvas>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-container">
+            <div class="header-left">
+                <div class="logo-icon">
+                    <a href="index.html">
+                        <img src="/ReVogue/assets/images/logo-removebg-preview.png" alt="Logo" height="40">
+                    </a>
+                </div>
+            </div>
+            <!--Nav section-->
+
+            <nav class="nav-links">
+                <a href="index.html" class="nav-link active">Home</a>
+                <a href="shop.html" class="nav-link">Shop</a>
+                <a href="about.html" class="nav-link">About</a>
+                <a href="contact.html" class="nav-link">Contact</a>
+            </nav>
+
+            <div class="search-container">
+                <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                </svg>
+                <input type="text" id="searchInput" placeholder="Search for vintage treasures..." class="search-input">
+            </div>
+
+            <div class="header-actions">
+                <button class="btn-primary" id="sellBtn">Sell Item</button>
+                
+                <!-- Notifications Button -->
+                <button class="icon-btn" id="notificationBtn" title="Notifications">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                    <span class="notification-badge" id="notificationBadge">3</span>
+                </button>
+                
+                <!-- Messages Button -->
+                <button class="icon-btn" id="messagesBtn" title="Messages">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span class="notification-badge" id="messagesBadge">2</span>
+                </button>
+                
+                <a href="/ReVogue/Pages/favorite.html">
+                    <button class="icon-btn" title="Favorites">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                        </svg>
+                    </button>
+                </a>
+                <a href="login.html" class="icon-btn" title="Dashboard">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-pattern"></div>
+        <div class="hero-content">
+            <div class="hero-badge">
+                <svg class="sparkle-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2v20M2 12h20M6 6l12 12M6 18L18 6"></path>
+                </svg>
+                <span>Sustainable Fashion Marketplace</span>
+            </div>
+            
+            <h2 class="hero-title">
+                Give Your Style <br>
+                <span class="hero-highlight">A Second Life</span>
+            </h2>
+            
+            <p class="hero-description">
+                Buy and sell pre-loved fashion. Sustainable, affordable, and unique pieces waiting for you.
+            </p>
+            
+            <div class="hero-features">
+                <div class="feature-badge">
+                    <span class="emoji">🌍</span>
+                    <span>Eco-Friendly</span>
+                </div>
+                <div class="feature-badge">
+                    <span class="emoji">💰</span>
+                    <span>Save Money</span>
+                </div>
+                <div class="feature-badge">
+                    <span class="emoji">✨</span>
+                    <span>Unique Finds</span>
+                </div>
+            </div>
+        </div>
+        <div class="hero-wave">
+            <svg viewBox="0 0 1440 120">
+                <path fill="#faf5ff" d="M0,64L80,69.3C160,75,320,85,480,80C640,75,800,53,960,48C1120,43,1280,53,1360,58.7L1440,64L1440,120L1360,120C1280,120,1120,120,960,120C800,120,640,120,480,120C320,120,160,120,80,120L0,120Z"></path>
+            </svg>
+        </div>
+    </section>
+
+    <!-- Categories Section -->
+    <section class="categories-section">
+        <div class="categories-container">
+            <h3 class="categories-title">Browse Categories</h3>
+            <div class="categories-grid" id="categoriesGrid">
+                <!-- Categories will be generated by JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="content-wrapper">
+            <!-- Filter Sidebar -->
+            <aside class="filter-sidebar">
+                <div class="filter-header">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="4" y1="21" x2="4" y2="14"></line>
+                        <line x1="4" y1="10" x2="4" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12" y2="3"></line>
+                        <line x1="20" y1="21" x2="20" y2="16"></line>
+                        <line x1="20" y1="12" x2="20" y2="3"></line>
+                        <line x1="1" y1="14" x2="7" y2="14"></line>
+                        <line x1="9" y1="8" x2="15" y2="8"></line>
+                        <line x1="17" y1="16" x2="23" y2="16"></line>
+                    </svg>
+                    <h3>Filters</h3>
+                </div>
+
+                <!-- Price Range -->
+                <div class="filter-group">
+                    <label class="filter-label">Price Range</label>
+                    <input type="range" id="priceRange" min="0" max="10000" value="10000" class="price-slider">
+                    <div class="price-display">
+                        <span>BDT 0</span>
+                        <span id="maxPrice">BDT 10000</span>
+                    </div>
+                </div>
+
+                <!-- Condition -->
+                <div class="filter-group">
+                    <label class="filter-label">Condition</label>
+                    <div id="conditionFilters" class="condition-filters">
+                        <!-- Generated by JS -->
+                    </div>
+                </div>
+
+                <!-- Sort By -->
+                <div class="filter-group">
+                    <label class="filter-label">Sort By</label>
+                    <select id="sortBy" class="filter-select">
+                        <option value="newest">Newest First</option>
+                        <option value="price-low">Price: Low to High</option>
+                        <option value="price-high">Price: High to Low</option>
+                    </select>
+                </div>
+
+                <button class="btn-clear" id="clearFilters">Clear All Filters</button>
+            </aside>
+
+            <!-- Product Grid -->
+            <div class="products-section">
+                <div id="productsGrid" class="products-grid">
+                    <!-- Products will be generated by JavaScript -->
+                </div>
+                <div id="noProducts" class="no-products" style="display: none;">
+                    <div class="no-products-icon">🔍</div>
+                    <h3>No products found</h3>
+                    <p>Try adjusting your filters</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Sell Product Modal -->
+    <div id="sellModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">List Your Item</h2>
+                <button class="modal-close" id="closeSellModal">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <form id="sellForm" class="sell-form">
+                <!-- Image Upload -->
+                <div class="form-group">
+                    <label class="form-label">Product Image *</label>
+                    <div class="image-upload" id="imageUploadArea">
+                        <div id="uploadPrompt">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <p>Click to upload or drag and drop</p>
+                            <label for="imageInput" class="upload-btn">Choose File</label>
+                        </div>
+                        <div id="imagePreview" style="display: none;">
+                            <img id="previewImg" src="" alt="Preview">
+                            <button type="button" id="removeImage" class="remove-image">×</button>
+                        </div>
+                    </div>
+                    <input type="file" id="imageInput" accept="image/*" style="display: none;">
+                </div>
+
+                <!-- Product Name -->
+                <div class="form-group">
+                    <label class="form-label">Product Name *</label>
+                    <input type="text" id="productName" placeholder="e.g., Vintage Denim Jacket" required>
+                </div>
+
+                <!-- Price and Category -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Price (BDT) *</label>
+                        <input type="number" id="productPrice" placeholder="0.00" step="0.01" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Category *</label>
+                        <select id="productCategory" required>
+                            <option value="Tops">Tops</option>
+                            <option value="Bottoms">Bottoms</option>
+                            <option value="Dresses">Dresses</option>
+                            <option value="Accessories">Accessories</option>
+                            <option value="Shoes">Shoes</option>
+                            <option value="Bags">Bags</option>
+                            <option value="Eyewear">Eyewear</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Condition and Usage Time -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Condition *</label>
+                        <select id="productCondition" required>
+                            <option value="Like New">Like New</option>
+                            <option value="Good">Good</option>
+                            <option value="Fair">Fair</option>
+                            <option value="Well Used">Well Used</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Usage Time *</label>
+                        <input type="text" id="productUsageTime" placeholder="e.g., 6 months, 2 years" required>
+                    </div>
+                </div>
+
+                <!-- Size -->
+                <div class="form-group">
+                    <label class="form-label">Size (Optional)</label>
+                    <input type="text" id="productSize" placeholder="e.g., M, L, 10, EU 40">
+                </div>
+
+                <!-- Description -->
+                <div class="form-group">
+                    <label class="form-label">Description *</label>
+                    <textarea id="productDescription" rows="4" placeholder="Describe your item, including any flaws or special features..." required></textarea>
+                </div>
+
+                <!-- Buttons -->
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancelSell">Cancel</button>
+                    <button type="submit" class="btn-primary">List Item</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Product Detail Modal -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 class="modal-title">Product Details</h2>
+                <button class="modal-close" id="closeDetailModal">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div id="productDetails" class="product-details">
+                <!-- Product details will be inserted here -->
+            </div>
+        </div>
+    </div>
+    <!-- Notifications Panel -->
+<div id="notificationsPanel" class="dropdown-panel">
+    <div class="panel-header">
+        <h3>Notifications</h3>
+        <button class="text-btn" id="markAllRead">Mark all read</button>
+    </div>
+    <div class="panel-content" id="notificationsList">
+        <!-- Notifications will be generated by JavaScript -->
+    </div>
+</div>
+
+<!-- Messages Panel -->
+<div id="messagesPanel" class="dropdown-panel">
+    <div class="panel-header">
+        <h3>Messages</h3>
+        <button class="text-btn" id="newMessageBtn">New</button>
+    </div>
+    <div class="panel-content" id="messagesList">
+        <!-- Messages will be generated by JavaScript -->
+    </div>
+</div>
+
+<!-- Message Chat Modal -->
+<div id="chatModal" class="modal">
+    <div class="modal-content modal-chat">
+        <div class="modal-header">
+            <div class="chat-user-info">
+                <div class="chat-avatar" id="chatAvatar"></div>
+                <div>
+                    <h2 class="modal-title" id="chatUsername">User</h2>
+                    <span class="chat-status">Online</span>
+                </div>
+            </div>
+            <button class="modal-close" id="closeChatModal">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <!-- Messages will be generated here -->
+        </div>
+        <div class="chat-input-container">
+            <input type="text" id="chatInput" placeholder="Type a message..." class="chat-input">
+            <button class="btn-send" id="sendMessageBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Live Chat Widget -->
+<div id="liveChatWidget" class="live-chat-widget">
+    <button id="liveChatToggle" class="live-chat-toggle">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <span class="live-chat-badge">1</span>
+    </button>
+    
+    <div id="liveChatBox" class="live-chat-box">
+        <div class="live-chat-header">
+            <div class="live-chat-header-info">
+                <div class="live-chat-avatar">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h4>ReVogue Support</h4>
+                    <span class="support-status">● Online</span>
+                </div>
+            </div>
+            <button id="liveChatClose" class="live-chat-close-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="live-chat-messages" id="liveChatMessages">
+            <div class="live-chat-message support">
+                <div class="message-content">
+                    <p>Hello! 👋 Welcome to ReVogue. How can we help you today?</p>
+                    <span class="message-time">Just now</span>
+                </div>
+            </div>
+        </div>
+        <div class="live-chat-input-container">
+            <input type="text" id="liveChatInput" placeholder="Type your message..." class="live-chat-input">
+            <button id="liveChatSend" class="live-chat-send-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="/ReVogue/js/index.js"></script>
+<script src="/ReVogue/js/messaging.js"></script>
+<script src="/ReVogue/js/indexanimation.js"></script>
+
+</body>
+</html>
