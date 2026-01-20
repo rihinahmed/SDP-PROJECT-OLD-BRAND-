@@ -41,9 +41,6 @@
     }
 }
 
-/* Styling is 50% science, 50% magic */
-
-
 /* Auth Tabs */
 .auth-tabs {
     display: flex;
@@ -71,6 +68,8 @@
     color: white;
 }
 
+
+/* indctr */
 .tab-indicator {
     position: absolute;
     top: 0.5rem;
