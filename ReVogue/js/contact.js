@@ -1,3 +1,56 @@
+// /ReVogue/js/contact.js - Dynamic with Supabase
+const API_URL = 'http://localhost:3000/api';
+
+// Auth Service
+const AuthService = {
+    getToken() {
+        return localStorage.getItem('authToken');
+    },
+    
+    getUser() {
+        const user = localStorage.getItem('user');
+        return user ? JSON.parse(user) : null;
+    },
+    
+    isAuthenticated() {
+        return !!this.getToken();
+    },
+
+    getHeaders() {
+        const token = this.getToken();
+        return {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+        };
+    }
+};
+
+// Show notification
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 6rem;
+        right: 1rem;
+        padding: 1rem 1.5rem;
+        background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : 'linear-gradient(to right, var(--purple-500), var(--pink-500))'};
+        color: white;
+        border-radius: 0.75rem;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+        z-index: 10000;
+        animation: slideIn 0.3s ease-out;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
 // Particle Animation
 const canvas = document.getElementById('particleCanvas');
 const ctx = canvas.getContext('2d');
@@ -72,15 +125,15 @@ const contactMethods = [
     {
         icon: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>',
         title: 'Call Us',
-        details: '+1 (555) 123-4567',
-        subtext: 'Mon-Fri 9AM-6PM EST',
+        details: '+880 1234-567890',
+        subtext: 'Mon-Fri 9AM-6PM',
         gradient: 'linear-gradient(135deg, #38bdf8 0%, #06b6d4 100%)'
     },
     {
         icon: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>',
         title: 'Visit Us',
-        details: '123 Fashion Street',
-        subtext: 'New York, NY 10001',
+        details: 'Dhaka, Bangladesh',
+        subtext: 'Sustainable Fashion Hub',
         gradient: 'linear-gradient(135deg, #f472b6 0%, #db2777 100%)'
     },
     {
@@ -100,15 +153,23 @@ const faqs = [
     },
     {
         question: 'What payment methods do you accept?',
-        answer: 'We accept all major credit cards, PayPal, and Apple Pay for secure transactions.'
+        answer: 'We accept bKash, Nagad, Rocket, and all major credit cards for secure transactions.'
     },
     {
         question: 'How long does shipping take?',
-        answer: 'Standard shipping takes 3-5 business days. Express shipping is available for faster delivery.'
+        answer: 'Delivery within Dhaka takes 1-2 days. Outside Dhaka takes 3-5 business days.'
     },
     {
         question: 'What is your return policy?',
-        answer: "We offer a 14-day return policy for items that don't match the description."
+        answer: "We offer a 7-day return policy for items that don't match the description."
+    },
+    {
+        question: 'How can I track my order?',
+        answer: 'You will receive a tracking number via email once your order is shipped.'
+    },
+    {
+        question: 'Is there a minimum order value?',
+        answer: 'No minimum order value. Buy as little or as much as you like!'
     }
 ];
 
@@ -153,27 +214,101 @@ function renderFAQs() {
     `).join('');
 }
 
-// Contact Form Handler
+// Populate user data if logged in
+function populateUserData() {
+    if (AuthService.isAuthenticated()) {
+        const user = AuthService.getUser();
+        const profile = JSON.parse(localStorage.getItem('revogueUser') || '{}');
+        
+        // Get form fields
+        const nameInput = document.querySelector('input[name="name"]');
+        const emailInput = document.querySelector('input[name="email"]');
+        
+        if (nameInput && profile.profile?.full_name) {
+            nameInput.value = profile.profile.full_name;
+            nameInput.removeAttribute('readonly');
+        } else if (nameInput) {
+            nameInput.value = '';
+            nameInput.placeholder = 'Your Name';
+            nameInput.removeAttribute('readonly');
+        }
+        
+        if (emailInput && (user.email || profile.email)) {
+            emailInput.value = user.email || profile.email;
+            emailInput.removeAttribute('readonly');
+        } else if (emailInput) {
+            emailInput.value = '';
+            emailInput.placeholder = 'your@email.com';
+            emailInput.removeAttribute('readonly');
+        }
+    } else {
+        // Not logged in - make fields editable
+        const nameInput = document.querySelector('input[name="name"]');
+        const emailInput = document.querySelector('input[name="email"]');
+        
+        if (nameInput) {
+            nameInput.value = '';
+            nameInput.placeholder = 'Your Name';
+            nameInput.removeAttribute('readonly');
+        }
+        
+        if (emailInput) {
+            emailInput.value = '';
+            emailInput.placeholder = 'your@email.com';
+            emailInput.removeAttribute('readonly');
+        }
+    }
+}
+
+// Contact Form Handler (with backend integration)
 const contactForm = document.getElementById('contactForm');
 const successMessage = document.getElementById('successMessage');
 
-contactForm.addEventListener('submit', (e) => {
+contactForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    // Hide form and show success message
-    contactForm.style.display = 'none';
-    successMessage.style.display = 'block';
+    const formData = {
+        name: contactForm.name.value,
+        email: contactForm.email.value,
+        subject: contactForm.subject.value,
+        message: contactForm.message.value,
+        userId: AuthService.isAuthenticated() ? AuthService.getUser()?.id : null
+    };
     
-    // Animate success icon
-    const successIcon = successMessage.querySelector('.success-icon');
-    successIcon.style.animation = 'successPulse 0.6s ease-out';
-    
-    // Reset after 3 seconds
-    setTimeout(() => {
-        successMessage.style.display = 'none';
-        contactForm.style.display = 'block';
-        contactForm.reset();
-    }, 3000);
+    try {
+        // You would send this to your backend
+        // For now, we'll simulate the submission
+        console.log('Contact form submitted:', formData);
+        
+        // Here you would make an API call like:
+        // const response = await fetch(`${API_URL}/contact`, {
+        //     method: 'POST',
+        //     headers: { 'Content-Type': 'application/json' },
+        //     body: JSON.stringify(formData)
+        // });
+        
+        // Hide form and show success message
+        contactForm.style.display = 'none';
+        successMessage.style.display = 'block';
+        
+        // Animate success icon
+        const successIcon = successMessage.querySelector('.success-icon');
+        successIcon.style.animation = 'successPulse 0.6s ease-out';
+        
+        showNotification('Message sent successfully!', 'success');
+        
+        // Reset after 3 seconds
+        setTimeout(() => {
+            successMessage.style.display = 'none';
+            contactForm.style.display = 'block';
+            contactForm.reset();
+            populateUserData(); // Repopulate user data
+        }, 3000);
+        
+    } catch (error) {
+        console.error('Contact form error:', error);
+        showNotification('Failed to send message. Please try again.', 'error');
+    }
 });
 
 // Add success animation
@@ -192,6 +327,28 @@ style.textContent = `
             opacity: 1;
         }
     }
+    
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
 `;
 document.head.appendChild(style);
 
@@ -199,23 +356,34 @@ document.head.appendChild(style);
 const newsletterForm = document.querySelector('.newsletter-form');
 const newsletterButton = newsletterForm.querySelector('.newsletter-button');
 
-newsletterButton.addEventListener('click', (e) => {
+newsletterButton.addEventListener('click', async (e) => {
     e.preventDefault();
     const input = newsletterForm.querySelector('.newsletter-input');
     
     if (input.value && input.value.includes('@')) {
-        // Show success feedback
-        const originalHTML = newsletterButton.innerHTML;
-        newsletterButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
-        newsletterButton.style.background = '#059669';
-        
-        setTimeout(() => {
-            newsletterButton.innerHTML = originalHTML;
-            newsletterButton.style.background = '';
-            input.value = '';
-        }, 2000);
+        try {
+            // Here you would subscribe the email
+            console.log('Newsletter subscription:', input.value);
+            
+            // Show success feedback
+            const originalHTML = newsletterButton.innerHTML;
+            newsletterButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
+            newsletterButton.style.background = '#059669';
+            
+            showNotification('Successfully subscribed to newsletter!', 'success');
+            
+            setTimeout(() => {
+                newsletterButton.innerHTML = originalHTML;
+                newsletterButton.style.background = '';
+                input.value = '';
+            }, 2000);
+        } catch (error) {
+            console.error('Newsletter subscription error:', error);
+            showNotification('Failed to subscribe. Please try again.', 'error');
+        }
     } else {
         input.style.borderColor = '#ef4444';
+        showNotification('Please enter a valid email address', 'error');
         setTimeout(() => {
             input.style.borderColor = '';
         }, 1000);
@@ -226,7 +394,9 @@ newsletterButton.addEventListener('click', (e) => {
 document.querySelectorAll('.social-link').forEach(link => {
     link.addEventListener('click', () => {
         const platform = link.textContent;
-        alert(`This would open ReVogue's ${platform} page!`);
+        showNotification(`Opening ReVogue's ${platform} page...`, 'info');
+        // Here you would redirect to actual social media pages
+        // window.open('https://instagram.com/revogue', '_blank');
     });
 });
 
@@ -234,9 +404,28 @@ document.querySelectorAll('.social-link').forEach(link => {
 const mapButton = document.querySelector('.map-button');
 if (mapButton) {
     mapButton.addEventListener('click', () => {
-        alert('This would open Google Maps with our store location!');
+        showNotification('Opening Google Maps...', 'info');
+        // Here you would redirect to Google Maps
+        // window.open('https://maps.google.com/?q=Dhaka,Bangladesh', '_blank');
     });
 }
+
+// Live Chat Handler
+document.getElementById('liveChatToggle')?.addEventListener('click', () => {
+    showNotification('Live chat coming soon!', 'info');
+});
+
+// Sell Button Handler
+document.getElementById('sellBtn')?.addEventListener('click', () => {
+    if (!AuthService.isAuthenticated()) {
+        showNotification('Please login to sell items', 'error');
+        setTimeout(() => {
+            window.location.href = 'login.html';
+        }, 1500);
+        return;
+    }
+    window.location.href = 'index.html';
+});
 
 // Animate contact method cards on scroll
 function observeContactMethods() {
@@ -282,8 +471,16 @@ function observeFAQs() {
     });
 }
 
-// Initialize
-renderContactMethods();
-renderFAQs();
-observeContactMethods();
-observeFAQs();
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    renderContactMethods();
+    renderFAQs();
+    populateUserData();
+    observeContactMethods();
+    observeFAQs();
+    
+    // Update UI based on auth state
+    if (AuthService.isAuthenticated()) {
+        console.log('User logged in - form auto-populated');
+    }
+});

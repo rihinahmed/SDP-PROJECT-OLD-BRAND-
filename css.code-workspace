@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../js"
+		},
+		{
+			"path": "../Pages"
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "Pages"
+	}
+}
