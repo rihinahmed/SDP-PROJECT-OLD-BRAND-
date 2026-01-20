@@ -50,13 +50,18 @@ const API = {
             const params = new URLSearchParams();
             if (filters.category && filters.category !== 'All') params.append('category', filters.category);
             if (filters.condition) params.append('condition', filters.condition);
-            if (filters.maxPrice) params.append('maxPrice', filters.maxPrice);
-            if (filters.sortBy) params.append('sortBy', filters.sortBy);
+            if (filters.maxPrice) params.append('max_price', filters.maxPrice);
+            if (filters.sortBy) params.append('sort', filters.sortBy);
             if (filters.search) params.append('search', filters.search);
             
             const response = await fetch(`${API_URL}/products?${params}`);
             if (!response.ok) throw new Error('Failed to fetch products');
-            return await response.json();
+            
+            const data = await response.json();
+            console.log('API Response:', data); // Debug log
+            
+            // FIXED: Return the data array, not the whole response
+            return data.data || data || [];
         } catch (error) {
             console.error('Get products error:', error);
             return [];
@@ -67,7 +72,10 @@ const API = {
         try {
             const response = await fetch(`${API_URL}/products/${id}`);
             if (!response.ok) throw new Error('Product not found');
-            return await response.json();
+            
+            const data = await response.json();
+            // FIXED: Return the data object
+            return data.data || data;
         } catch (error) {
             console.error('Get product error:', error);
             return null;
@@ -92,9 +100,10 @@ const API = {
 
     async addToFavorites(productId) {
         try {
-            const response = await fetch(`${API_URL}/products/${productId}/favorite`, {
+            const response = await fetch(`${API_URL}/dashboard/favorites`, {
                 method: 'POST',
-                headers: AuthService.getHeaders()
+                headers: AuthService.getHeaders(),
+                body: JSON.stringify({ product_id: productId })
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error);
@@ -105,9 +114,9 @@ const API = {
         }
     },
 
-    async removeFromFavorites(productId) {
+    async removeFromFavorites(favoriteId) {
         try {
-            const response = await fetch(`${API_URL}/products/${productId}/favorite`, {
+            const response = await fetch(`${API_URL}/dashboard/favorites/${favoriteId}`, {
                 method: 'DELETE',
                 headers: AuthService.getHeaders()
             });
@@ -122,11 +131,14 @@ const API = {
 
     async getFavorites() {
         try {
-            const response = await fetch(`${API_URL}/products/favorites`, {
+            const response = await fetch(`${API_URL}/dashboard/favorites`, {
                 headers: AuthService.getHeaders()
             });
             if (!response.ok) throw new Error('Failed to fetch favorites');
-            return await response.json();
+            
+            const data = await response.json();
+            // FIXED: Return the data array
+            return data.data || data || [];
         } catch (error) {
             console.error('Get favorites error:', error);
             return [];
@@ -136,11 +148,13 @@ const API = {
     // Notifications
     async getNotifications() {
         try {
-            const response = await fetch(`${API_URL}/notifications`, {
+            const response = await fetch(`${API_URL}/dashboard/notifications`, {
                 headers: AuthService.getHeaders()
             });
             if (!response.ok) throw new Error('Failed to fetch notifications');
-            return await response.json();
+            
+            const data = await response.json();
+            return data.data || data || [];
         } catch (error) {
             console.error('Get notifications error:', error);
             return [];
@@ -149,7 +163,7 @@ const API = {
 
     async markNotificationAsRead(id) {
         try {
-            const response = await fetch(`${API_URL}/notifications/${id}/read`, {
+            const response = await fetch(`${API_URL}/dashboard/notifications/${id}/read`, {
                 method: 'PUT',
                 headers: AuthService.getHeaders()
             });
@@ -161,7 +175,7 @@ const API = {
 
     async markAllNotificationsAsRead() {
         try {
-            const response = await fetch(`${API_URL}/notifications/read-all`, {
+            const response = await fetch(`${API_URL}/dashboard/notifications/read-all`, {
                 method: 'PUT',
                 headers: AuthService.getHeaders()
             });
@@ -171,6 +185,39 @@ const API = {
         }
     }
 };
+
+// ALSO UPDATE: Load products function
+async function loadProducts() {
+    try {
+        console.log('Loading products with filters:', filters);
+        
+        const filterParams = {
+            category: filters.category,
+            maxPrice: filters.maxPrice,
+            sortBy: filters.sortBy,
+            search: filters.searchQuery
+        };
+        
+        // Add condition filter if any selected
+        if (filters.conditions.length > 0) {
+            filterParams.condition = filters.conditions[0];
+        }
+
+        products = await API.getProducts(filterParams);
+        
+        console.log('Loaded products:', products.length, products);
+        
+        // Load favorites if authenticated
+        if (AuthService.isAuthenticated()) {
+            await loadFavorites();
+        }
+        
+        renderProducts(products);
+    } catch (error) {
+        console.error('Error loading products:', error);
+        showNotification('Failed to load products. Check console for details.', 'error');
+    }
+}
 
 // Particle Animation
 const canvas = document.getElementById('particleCanvas');
@@ -290,7 +337,16 @@ async function loadProducts() {
 async function loadFavorites() {
     try {
         const favorites = await API.getFavorites();
-        userFavorites = new Set(favorites.map(fav => fav.product_id));
+        console.log('Loaded favorites:', favorites);
+        
+        // Map favorites to Set of product IDs
+        if (Array.isArray(favorites)) {
+            userFavorites = new Set(
+                favorites
+                    .map(fav => fav.products?.id || fav.product_id)
+                    .filter(Boolean)
+            );
+        }
     } catch (error) {
         console.error('Error loading favorites:', error);
     }
