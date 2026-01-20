@@ -1,38 +1,28 @@
-// src/controllers/dashboardController.js
-const { supabase } = require('../config/supabase');
+// src/controllers/dashboardController.js - COMPLETE VERSION
+const { supabase, supabaseAdmin } = require('../config/supabase');
 
 // Get Dashboard Statistics
 exports.getDashboardStats = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        // Get active products count
-        const { count: activeProducts, error: productsError } = await supabase
+        const { count: activeProducts } = await supabase
             .from('products')
             .select('*', { count: 'exact', head: true })
             .eq('user_id', userId)
             .eq('status', 'active');
 
-        if (productsError) throw productsError;
-
-        // Get favorites count
-        const { count: favoritesCount, error: favError } = await supabase
+        const { count: favoritesCount } = await supabase
             .from('favorites')
             .select('*', { count: 'exact', head: true })
             .eq('user_id', userId);
 
-        if (favError) throw favError;
-
-        // Get total products (sold)
-        const { data: soldProducts, error: soldError } = await supabase
+        const { data: soldProducts } = await supabase
             .from('products')
             .select('price')
             .eq('user_id', userId)
             .eq('status', 'sold');
 
-        if (soldError) throw soldError;
-
-        // Calculate total earnings
         const totalEarnings = soldProducts?.reduce((sum, product) => 
             sum + parseFloat(product.price || 0), 0) || 0;
 
@@ -83,6 +73,98 @@ exports.getUserListings = async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to fetch listings'
+        });
+    }
+};
+
+// Update Listing
+exports.updateListing = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+        const updates = req.body;
+
+        // Verify ownership
+        const { data: product } = await supabase
+            .from('products')
+            .select('user_id')
+            .eq('id', id)
+            .single();
+
+        if (!product || product.user_id !== userId) {
+            return res.status(403).json({
+                success: false,
+                error: 'Unauthorized'
+            });
+        }
+
+        const { data, error } = await supabase
+            .from('products')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        res.json({
+            success: true,
+            message: 'Listing updated successfully',
+            data
+        });
+    } catch (error) {
+        console.error('Update listing error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update listing'
+        });
+    }
+};
+
+// Delete Listing
+exports.deleteListing = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+
+        // Verify ownership
+        const { data: product } = await supabase
+            .from('products')
+            .select('user_id, image_url')
+            .eq('id', id)
+            .single();
+
+        if (!product || product.user_id !== userId) {
+            return res.status(403).json({
+                success: false,
+                error: 'Unauthorized'
+            });
+        }
+
+        // Delete image from storage if exists
+        if (product.image_url) {
+            const imagePath = product.image_url.split('/').pop();
+            await supabase.storage
+                .from('products')
+                .remove([`${userId}/${imagePath}`]);
+        }
+
+        const { error } = await supabase
+            .from('products')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
+        res.json({
+            success: true,
+            message: 'Listing deleted successfully'
+        });
+    } catch (error) {
+        console.error('Delete listing error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to delete listing'
         });
     }
 };
@@ -215,7 +297,6 @@ exports.getUserPurchases = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        // First check if orders table exists, if not return empty array
         const { data, error } = await supabase
             .from('products')
             .select(`
@@ -235,15 +316,8 @@ exports.getUserPurchases = async (req, res) => {
             .eq('status', 'sold')
             .order('created_at', { ascending: false });
 
-        if (error) {
-            console.log('Purchase query error:', error);
-            return res.json({
-                success: true,
-                data: []
-            });
-        }
+        if (error) throw error;
 
-        // Format the data to match expected structure
         const formattedData = data?.map(item => ({
             id: item.id,
             product: {
@@ -269,6 +343,236 @@ exports.getUserPurchases = async (req, res) => {
         res.json({
             success: true,
             data: []
+        });
+    }
+};
+
+// Get User Profile
+exports.getUserProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+
+        if (error) throw error;
+
+        res.json({
+            success: true,
+            data: data || {}
+        });
+    } catch (error) {
+        console.error('Get profile error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch profile'
+        });
+    }
+};
+
+// Update User Profile
+exports.updateProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { full_name, location, phone, bio } = req.body;
+
+        const updates = {};
+        if (full_name !== undefined) updates.full_name = full_name;
+        if (location !== undefined) updates.location = location;
+        if (phone !== undefined) updates.phone = phone;
+        if (bio !== undefined) updates.bio = bio;
+
+        const { data, error } = await supabase
+            .from('profiles')
+            .update(updates)
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        res.json({
+            success: true,
+            message: 'Profile updated successfully',
+            data
+        });
+    } catch (error) {
+        console.error('Update profile error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update profile'
+        });
+    }
+};
+
+// Upload Avatar
+exports.uploadAvatar = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const file = req.file;
+
+        if (!file) {
+            return res.status(400).json({
+                success: false,
+                error: 'No file uploaded'
+            });
+        }
+
+        const fileExt = file.originalname.split('.').pop();
+        const fileName = `${userId}-${Date.now()}.${fileExt}`;
+        const filePath = `${userId}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(filePath, file.buffer, {
+                contentType: file.mimetype,
+                upsert: true
+            });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(filePath);
+
+        const { data, error } = await supabase
+            .from('profiles')
+            .update({ avatar_url: publicUrl })
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        res.json({
+            success: true,
+            message: 'Avatar uploaded successfully',
+            data: {
+                avatar_url: publicUrl
+            }
+        });
+    } catch (error) {
+        console.error('Upload avatar error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to upload avatar'
+        });
+    }
+};
+
+// Get User Settings
+exports.getUserSettings = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const { data, error } = await supabase
+            .from('user_settings')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error;
+
+        // Create settings if not exists
+        if (!data) {
+            const { data: newSettings } = await supabase
+                .from('user_settings')
+                .insert([{ user_id: userId }])
+                .select()
+                .single();
+
+            return res.json({
+                success: true,
+                data: newSettings
+            });
+        }
+
+        res.json({
+            success: true,
+            data
+        });
+    } catch (error) {
+        console.error('Get settings error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch settings'
+        });
+    }
+};
+
+// Update User Settings
+exports.updateSettings = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { email_notifications, message_notifications, price_drop_alerts } = req.body;
+
+        const updates = {};
+        if (email_notifications !== undefined) updates.email_notifications = email_notifications;
+        if (message_notifications !== undefined) updates.message_notifications = message_notifications;
+        if (price_drop_alerts !== undefined) updates.price_drop_alerts = price_drop_alerts;
+
+        const { data, error } = await supabase
+            .from('user_settings')
+            .update(updates)
+            .eq('user_id', userId)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        res.json({
+            success: true,
+            message: 'Settings updated successfully',
+            data
+        });
+    } catch (error) {
+        console.error('Update settings error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update settings'
+        });
+    }
+};
+
+// Change Password
+exports.changePassword = async (req, res) => {
+    try {
+        const { current_password, new_password } = req.body;
+
+        if (!current_password || !new_password) {
+            return res.status(400).json({
+                success: false,
+                error: 'Current and new password are required'
+            });
+        }
+
+        if (new_password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                error: 'Password must be at least 6 characters'
+            });
+        }
+
+        // Use admin client to update password
+        const { error } = await supabaseAdmin.auth.admin.updateUserById(
+            req.user.id,
+            { password: new_password }
+        );
+
+        if (error) throw error;
+
+        res.json({
+            success: true,
+            message: 'Password changed successfully'
+        });
+    } catch (error) {
+        console.error('Change password error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to change password'
         });
     }
 };
@@ -450,65 +754,6 @@ exports.markMessageRead = async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to mark message'
-        });
-    }
-};
-
-// Upload Avatar
-exports.uploadAvatar = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const file = req.file;
-
-        if (!file) {
-            return res.status(400).json({
-                success: false,
-                error: 'No file uploaded'
-            });
-        }
-
-        // Generate unique filename
-        const fileExt = file.originalname.split('.').pop();
-        const fileName = `${userId}-${Date.now()}.${fileExt}`;
-        const filePath = `avatars/${fileName}`;
-
-        // Upload to Supabase Storage
-        const { error: uploadError } = await supabase.storage
-            .from('avatars')
-            .upload(filePath, file.buffer, {
-                contentType: file.mimetype,
-                upsert: true
-            });
-
-        if (uploadError) throw uploadError;
-
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-            .from('avatars')
-            .getPublicUrl(filePath);
-
-        // Update profile with new avatar URL
-        const { data, error } = await supabase
-            .from('profiles')
-            .update({ avatar_url: publicUrl })
-            .eq('id', userId)
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        res.json({
-            success: true,
-            message: 'Avatar uploaded successfully',
-            data: {
-                avatar_url: publicUrl
-            }
-        });
-    } catch (error) {
-        console.error('Upload avatar error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to upload avatar'
         });
     }
 };

@@ -1,4 +1,4 @@
-// src/config/supabase.js
+// src/config/supabase.js - FIXED VERSION
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -12,10 +12,23 @@ if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
     process.exit(1);
 }
 
-// Client for regular operations (with RLS)
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// IMPORTANT: For backend operations, use service key to bypass RLS
+// This is the main client that should be used in controllers
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+        autoRefreshToken: false,
+        persistSession: false
+    }
+});
 
-// Admin client for operations that bypass RLS
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+// Admin client (same as supabase for backend)
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+        autoRefreshToken: false,
+        persistSession: false
+    }
+});
+
+console.log('✅ Supabase initialized with service key');
 
 module.exports = { supabase, supabaseAdmin };
