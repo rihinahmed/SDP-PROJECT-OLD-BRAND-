@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Favorites - ReVogue</title>
-    <link rel="stylesheet" href="/ReVogue/css/favorite.css">
+    <link rel="stylesheet" href="/css/favorite.css">
 </head>
 <body>
     <!-- Particle Background -->
@@ -15,12 +15,14 @@
         <div class="header-container">
             <div class="header-left">
                 <div class="logo-icon">
-                    <a href="index.html">
-                        <img src="/ReVogue/assets/images/logo-removebg-preview.png" alt="Logo" height="40">
-                    </a>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <path d="M16 10a4 4 0 0 1-8 0"></path>
+                    </svg>
                 </div>
+                <h1 class="logo-text">ReVogue</h1>
             </div>
-            <!--Alpha Coy Comd-->
 
             <nav class="nav-links">
                 <a href="index.html" class="nav-link">Home</a>
@@ -125,6 +127,7 @@
                         <option value="name">Name: A-Z</option>
                     </select>
                 </div>
+<!-- Clear Filter -->
 
                 <button class="btn-clear" id="clearAllFavorites">Clear All Favorites</button>
             </aside>
