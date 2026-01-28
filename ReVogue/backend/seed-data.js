@@ -199,16 +199,7 @@ async function seedData() {
                 usage_time: '3 months',
                 image_url: 'https://images.unsplash.com/photo-1566150905458-1bf1fc113f0d?w=800'
             },
-            {
-                name: 'Leather Belt',
-                description: 'Classic leather belt with brass buckle. Goes well with jeans and formal wear.',
-                price: 500,
-                category: 'Accessories',
-                condition: 'Good',
-                size: '32',
-                usage_time: '1 year',
-                image_url: 'https://images.unsplash.com/photo-1624222247344-550fb60583b8?w=800'
-            }
+            
         ];
 
         const createdProducts = [];

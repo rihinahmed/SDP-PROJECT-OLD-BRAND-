@@ -1,68 +1,112 @@
 // src/controllers/dashboardController.js - COMPLETE VERSION
 const { supabase, supabaseAdmin } = require('../config/supabase');
 
-// Get Dashboard Statistics
-exports.getDashboardStats = async (req, res) => {
+// Get Dashboard Stats
+const getDashboardStats = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const { count: activeProducts } = await supabase
+        console.log('=== FETCHING DASHBOARD STATS ===');
+        console.log('User ID:', userId);
+
+        // Get total listings count
+        const { count: listingsCount, error: listingsError } = await supabaseAdmin
             .from('products')
             .select('*', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .eq('status', 'available');
+            .eq('user_id', userId);
 
-        const { count: favoritesCount } = await supabase
+        if (listingsError) {
+            console.error('Listings count error:', listingsError);
+        }
+
+        // Get favorites count
+        const { count: favoritesCount, error: favoritesError } = await supabaseAdmin
             .from('favorites')
             .select('*', { count: 'exact', head: true })
             .eq('user_id', userId);
 
-        const { data: soldProducts } = await supabase
-            .from('products')
-            .select('price')
-            .eq('user_id', userId)
-            .eq('status', 'sold');
+        if (favoritesError) {
+            console.error('Favorites count error:', favoritesError);
+        }
 
-        const totalEarnings = soldProducts?.reduce((sum, product) => 
-            sum + parseFloat(product.price || 0), 0) || 0;
+        // Get total views across all products
+        const { data: viewsData, error: viewsError } = await supabaseAdmin
+            .from('products')
+            .select('views')
+            .eq('user_id', userId);
+
+        const totalViews = viewsData?.reduce((sum, product) => sum + (product.views || 0), 0) || 0;
+
+        if (viewsError) {
+            console.error('Views count error:', viewsError);
+        }
+
+        // Get unread notifications count
+        const { count: unreadNotifications, error: notifError } = await supabaseAdmin
+            .from('notifications')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .eq('is_read', false);
+
+        if (notifError) {
+            console.error('Notifications count error:', notifError);
+        }
+
+        // Get unread messages count
+        const { count: unreadMessages, error: messagesError } = await supabaseAdmin
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('receiver_id', userId)
+            .eq('is_read', false);
+
+        if (messagesError) {
+            console.error('Messages count error:', messagesError);
+        }
+
+        const stats = {
+            active_listings: listingsCount || 0,
+            total_favorites: favoritesCount || 0,
+            total_views: totalViews,
+            items_sold: 0, // TODO: Implement when orders table exists
+            total_earnings: 0, // TODO: Implement when orders table exists
+            unread_notifications: unreadNotifications || 0,
+            unread_messages: unreadMessages || 0
+        };
+
+        console.log('Dashboard stats:', stats);
 
         res.json({
             success: true,
-            data: {
-                active_listings: activeProducts || 0,
-                total_favorites: favoritesCount || 0,
-                items_sold: soldProducts?.length || 0,
-                total_earnings: totalEarnings
-            }
+            data: stats
         });
     } catch (error) {
-        console.error('Dashboard stats error:', error);
+        console.error('=== DASHBOARD STATS ERROR ===');
+        console.error('Error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to fetch dashboard statistics'
+            error: 'Failed to fetch dashboard stats'
         });
     }
 };
 
-// Get User's Products/Listings
-exports.getUserListings = async (req, res) => {
+// Get User Listings
+const getUserListings = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { status } = req.query;
 
-        let query = supabase
+        const { data, error } = await supabaseAdmin
             .from('products')
             .select('*')
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
 
-        if (status) {
-            query = query.eq('status', status);
+        if (error) {
+            console.error('Get listings error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
         }
-
-        const { data, error } = await query;
-
-        if (error) throw error;
 
         res.json({
             success: true,
@@ -78,34 +122,30 @@ exports.getUserListings = async (req, res) => {
 };
 
 // Update Listing
-exports.updateListing = async (req, res) => {
+const updateListing = async (req, res) => {
     try {
         const userId = req.user.id;
         const { id } = req.params;
         const updates = req.body;
 
-        // Verify ownership
-        const { data: product } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('products')
-            .select('user_id')
+            .update({
+                ...updates,
+                updated_at: new Date().toISOString()
+            })
             .eq('id', id)
-            .single();
-
-        if (!product || product.user_id !== userId) {
-            return res.status(403).json({
-                success: false,
-                error: 'Unauthorized'
-            });
-        }
-
-        const { data, error } = await supabase
-            .from('products')
-            .update(updates)
-            .eq('id', id)
+            .eq('user_id', userId)
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Update listing error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
 
         res.json({
             success: true,
@@ -122,39 +162,24 @@ exports.updateListing = async (req, res) => {
 };
 
 // Delete Listing
-exports.deleteListing = async (req, res) => {
+const deleteListing = async (req, res) => {
     try {
         const userId = req.user.id;
         const { id } = req.params;
 
-        // Verify ownership
-        const { data: product } = await supabase
-            .from('products')
-            .select('user_id, image_url')
-            .eq('id', id)
-            .single();
-
-        if (!product || product.user_id !== userId) {
-            return res.status(403).json({
-                success: false,
-                error: 'Unauthorized'
-            });
-        }
-
-        // Delete image from storage if exists
-        if (product.image_url) {
-            const imagePath = product.image_url.split('/').pop();
-            await supabase.storage
-                .from('products')
-                .remove([`${userId}/${imagePath}`]);
-        }
-
-        const { error } = await supabase
+        const { error } = await supabaseAdmin
             .from('products')
             .delete()
-            .eq('id', id);
+            .eq('id', id)
+            .eq('user_id', userId);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Delete listing error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
 
         res.json({
             success: true,
@@ -169,35 +194,53 @@ exports.deleteListing = async (req, res) => {
     }
 };
 
-// Get User's Favorites
-exports.getUserFavorites = async (req, res) => {
+// Get User Favorites
+const getUserFavorites = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const { data, error } = await supabase
+        console.log('=== FETCHING FAVORITES ===');
+        console.log('User ID:', userId);
+
+        const { data, error } = await supabaseAdmin
             .from('favorites')
             .select(`
                 id,
                 created_at,
                 product_id,
-                products (
+                products:product_id (
                     id,
                     name,
+                    description,
                     price,
-                    image_url,
+                    category,
                     condition,
+                    size,
+                    usage_time,
+                    image_url,
                     status,
                     user_id,
-                    profiles (
+                    views,
+                    created_at,
+                    profiles:user_id (
+                        username,
                         full_name,
-                        username
+                        avatar_url
                     )
                 )
             `)
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Get favorites error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
+
+        console.log('Favorites count:', data?.length || 0);
 
         res.json({
             success: true,
@@ -212,8 +255,8 @@ exports.getUserFavorites = async (req, res) => {
     }
 };
 
-// Add to Favorites
-exports.addFavorite = async (req, res) => {
+// Add Favorite
+const addFavorite = async (req, res) => {
     try {
         const userId = req.user.id;
         const { product_id } = req.body;
@@ -225,8 +268,12 @@ exports.addFavorite = async (req, res) => {
             });
         }
 
+        console.log('=== ADDING FAVORITE ===');
+        console.log('User ID:', userId);
+        console.log('Product ID:', product_id);
+
         // Check if already favorited
-        const { data: existing } = await supabase
+        const { data: existing } = await supabaseAdmin
             .from('favorites')
             .select('id')
             .eq('user_id', userId)
@@ -236,22 +283,31 @@ exports.addFavorite = async (req, res) => {
         if (existing) {
             return res.status(400).json({
                 success: false,
-                error: 'Item already in favorites'
+                error: 'Product already in favorites'
             });
         }
 
-        const { data, error } = await supabase
+        // Add to favorites
+        const { data, error } = await supabaseAdmin
             .from('favorites')
-            .insert([{
+            .insert({
                 user_id: userId,
-                product_id
-            }])
+                product_id: product_id
+            })
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Add favorite error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
 
-        res.json({
+        console.log('✅ Favorite added successfully');
+
+        res.status(201).json({
             success: true,
             message: 'Added to favorites',
             data
@@ -260,24 +316,36 @@ exports.addFavorite = async (req, res) => {
         console.error('Add favorite error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to add favorite'
+            error: 'Failed to add to favorites'
         });
     }
 };
 
-// Remove from Favorites
-exports.removeFavorite = async (req, res) => {
+// Remove Favorite
+const removeFavorite = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { id } = req.params;
+        const { id } = req.params; // This is the favorite ID
 
-        const { error } = await supabase
+        console.log('=== REMOVING FAVORITE ===');
+        console.log('User ID:', userId);
+        console.log('Favorite ID:', id);
+
+        const { error } = await supabaseAdmin
             .from('favorites')
             .delete()
             .eq('id', id)
             .eq('user_id', userId);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Remove favorite error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
+
+        console.log('✅ Favorite removed successfully');
 
         res.json({
             success: true,
@@ -287,82 +355,50 @@ exports.removeFavorite = async (req, res) => {
         console.error('Remove favorite error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to remove favorite'
+            error: 'Failed to remove from favorites'
         });
     }
 };
 
-// Get User's Purchases
-exports.getUserPurchases = async (req, res) => {
+// Get User Purchases (placeholder - implement when you have orders table)
+const getUserPurchases = async (req, res) => {
     try {
-        const userId = req.user.id;
-
-        const { data, error } = await supabase
-            .from('products')
-            .select(`
-                id,
-                name,
-                price,
-                image_url,
-                condition,
-                status,
-                created_at,
-                user_id,
-                profiles!products_user_id_fkey (
-                    full_name,
-                    username
-                )
-            `)
-            .eq('status', 'sold')
-            .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        const formattedData = data?.map(item => ({
-            id: item.id,
-            product: {
-                id: item.id,
-                name: item.name,
-                image_url: item.image_url
-            },
-            price: item.price,
-            status: 'Delivered',
-            created_at: item.created_at,
-            seller: {
-                full_name: item.profiles?.full_name,
-                username: item.profiles?.username
-            }
-        })) || [];
-
-        res.json({
-            success: true,
-            data: formattedData
-        });
-    } catch (error) {
-        console.error('Get purchases error:', error);
+        // TODO: Implement purchases functionality
         res.json({
             success: true,
             data: []
+        });
+    } catch (error) {
+        console.error('Get purchases error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch purchases'
         });
     }
 };
 
 // Get User Profile
-exports.getUserProfile = async (req, res) => {
+const getUserProfile = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('profiles')
             .select('*')
             .eq('id', userId)
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Get profile error:', error);
+            return res.status(404).json({
+                success: false,
+                error: 'Profile not found'
+            });
+        }
 
         res.json({
             success: true,
-            data: data || {}
+            data
         });
     } catch (error) {
         console.error('Get profile error:', error);
@@ -373,26 +409,32 @@ exports.getUserProfile = async (req, res) => {
     }
 };
 
-// Update User Profile
-exports.updateProfile = async (req, res) => {
+// Update Profile
+const updateProfile = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { full_name, location, phone, bio } = req.body;
+        const { username, full_name, bio, location } = req.body;
 
-        const updates = {};
-        if (full_name !== undefined) updates.full_name = full_name;
-        if (location !== undefined) updates.location = location;
-        if (phone !== undefined) updates.phone = phone;
-        if (bio !== undefined) updates.bio = bio;
-
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('profiles')
-            .update(updates)
+            .update({
+                username,
+                full_name,
+                bio,
+                location,
+                updated_at: new Date().toISOString()
+            })
             .eq('id', userId)
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Update profile error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
 
         res.json({
             success: true,
@@ -409,49 +451,44 @@ exports.updateProfile = async (req, res) => {
 };
 
 // Upload Avatar
-exports.uploadAvatar = async (req, res) => {
+const uploadAvatar = async (req, res) => {
     try {
         const userId = req.user.id;
-        const file = req.file;
 
-        if (!file) {
+        if (!req.file) {
             return res.status(400).json({
                 success: false,
                 error: 'No file uploaded'
             });
         }
 
-        const fileExt = file.originalname.split('.').pop();
-        const fileName = `${userId}-${Date.now()}.${fileExt}`;
-        const filePath = `${userId}/${fileName}`;
+        // The upload middleware already handled the Supabase storage upload
+        // req.file.cloudUrl contains the public URL
 
-        const { error: uploadError } = await supabaseAdmin.storage
-            .from('avatars')
-            .upload(filePath, file.buffer, {
-                contentType: file.mimetype,
-                upsert: true
-            });
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabaseAdmin.storage
-            .from('avatars')
-            .getPublicUrl(filePath);
-
-        const { data, error } = await supabase
+        // Update profile with new avatar URL
+        const { data, error } = await supabaseAdmin
             .from('profiles')
-            .update({ avatar_url: publicUrl })
+            .update({
+                avatar_url: req.file.cloudUrl,
+                updated_at: new Date().toISOString()
+            })
             .eq('id', userId)
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Update avatar error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
 
         res.json({
             success: true,
-            message: 'Avatar uploaded successfully',
+            message: 'Avatar updated successfully',
             data: {
-                avatar_url: publicUrl
+                avatar_url: req.file.cloudUrl
             }
         });
     } catch (error) {
@@ -464,35 +501,28 @@ exports.uploadAvatar = async (req, res) => {
 };
 
 // Get User Settings
-exports.getUserSettings = async (req, res) => {
+const getUserSettings = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const { data, error } = await supabase
-            .from('user_settings')
-            .select('*')
-            .eq('user_id', userId)
-            .single();
+        // Get user metadata from auth
+        const { data: { user }, error } = await supabaseAdmin.auth.admin.getUserById(userId);
 
-        if (error && error.code !== 'PGRST116') throw error;
-
-        // Create settings if not exists
-        if (!data) {
-            const { data: newSettings } = await supabase
-                .from('user_settings')
-                .insert([{ user_id: userId }])
-                .select()
-                .single();
-
-            return res.json({
-                success: true,
-                data: newSettings
+        if (error) {
+            console.error('Get settings error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
             });
         }
 
         res.json({
             success: true,
-            data
+            data: {
+                email: user.email,
+                email_verified: user.email_confirmed_at ? true : false,
+                created_at: user.created_at
+            }
         });
     } catch (error) {
         console.error('Get settings error:', error);
@@ -503,30 +533,29 @@ exports.getUserSettings = async (req, res) => {
     }
 };
 
-// Update User Settings
-exports.updateSettings = async (req, res) => {
+// Update Settings
+const updateSettings = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { email_notifications, message_notifications, price_drop_alerts } = req.body;
+        const { email } = req.body;
 
-        const updates = {};
-        if (email_notifications !== undefined) updates.email_notifications = email_notifications;
-        if (message_notifications !== undefined) updates.message_notifications = message_notifications;
-        if (price_drop_alerts !== undefined) updates.price_drop_alerts = price_drop_alerts;
+        if (email) {
+            const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+                email: email
+            });
 
-        const { data, error } = await supabase
-            .from('user_settings')
-            .update(updates)
-            .eq('user_id', userId)
-            .select()
-            .single();
-
-        if (error) throw error;
+            if (error) {
+                console.error('Update settings error:', error);
+                return res.status(400).json({
+                    success: false,
+                    error: error.message
+                });
+            }
+        }
 
         res.json({
             success: true,
-            message: 'Settings updated successfully',
-            data
+            message: 'Settings updated successfully'
         });
     } catch (error) {
         console.error('Update settings error:', error);
@@ -538,31 +567,37 @@ exports.updateSettings = async (req, res) => {
 };
 
 // Change Password
-exports.changePassword = async (req, res) => {
+const changePassword = async (req, res) => {
     try {
+        const userId = req.user.id;
         const { current_password, new_password } = req.body;
 
         if (!current_password || !new_password) {
             return res.status(400).json({
                 success: false,
-                error: 'Current and new password are required'
+                error: 'Current password and new password are required'
             });
         }
 
         if (new_password.length < 6) {
             return res.status(400).json({
                 success: false,
-                error: 'Password must be at least 6 characters'
+                error: 'New password must be at least 6 characters'
             });
         }
 
-        // Use admin client to update password
-        const { error } = await supabaseAdmin.auth.admin.updateUserById(
-            req.user.id,
-            { password: new_password }
-        );
+        // Update password
+        const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+            password: new_password
+        });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Change password error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
 
         res.json({
             success: true,
@@ -578,18 +613,24 @@ exports.changePassword = async (req, res) => {
 };
 
 // Get Notifications
-exports.getNotifications = async (req, res) => {
+const getNotifications = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('notifications')
             .select('*')
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .limit(50);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Get notifications error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
 
         res.json({
             success: true,
@@ -597,83 +638,100 @@ exports.getNotifications = async (req, res) => {
         });
     } catch (error) {
         console.error('Get notifications error:', error);
-        res.json({
-            success: true,
-            data: []
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch notifications'
         });
     }
 };
 
 // Mark Notification as Read
-exports.markNotificationRead = async (req, res) => {
+const markNotificationRead = async (req, res) => {
     try {
         const userId = req.user.id;
         const { id } = req.params;
 
-        const { error } = await supabase
+        const { error } = await supabaseAdmin
             .from('notifications')
-            .update({ read: true })
+            .update({ is_read: true })
             .eq('id', id)
             .eq('user_id', userId);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Mark notification read error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
 
         res.json({
             success: true,
             message: 'Notification marked as read'
         });
     } catch (error) {
-        console.error('Mark notification error:', error);
+        console.error('Mark notification read error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to mark notification'
+            error: 'Failed to mark notification as read'
         });
     }
 };
 
 // Mark All Notifications as Read
-exports.markAllNotificationsRead = async (req, res) => {
+const markAllNotificationsRead = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const { error } = await supabase
+        const { error } = await supabaseAdmin
             .from('notifications')
-            .update({ read: true })
+            .update({ is_read: true })
             .eq('user_id', userId)
-            .eq('read', false);
+            .eq('is_read', false);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Mark all notifications read error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
 
         res.json({
             success: true,
             message: 'All notifications marked as read'
         });
     } catch (error) {
-        console.error('Mark all notifications error:', error);
+        console.error('Mark all notifications read error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to mark notifications'
+            error: 'Failed to mark notifications as read'
         });
     }
 };
 
 // Get Messages
-exports.getMessages = async (req, res) => {
+const getMessages = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('messages')
             .select(`
                 *,
-                sender:profiles!messages_sender_id_fkey(id, full_name, username, avatar_url),
-                receiver:profiles!messages_receiver_id_fkey(id, full_name, username, avatar_url),
-                product:products(id, name, image_url)
+                sender:sender_id(username, full_name, avatar_url),
+                receiver:receiver_id(username, full_name, avatar_url)
             `)
             .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
             .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Get messages error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
 
         res.json({
             success: true,
@@ -681,43 +739,46 @@ exports.getMessages = async (req, res) => {
         });
     } catch (error) {
         console.error('Get messages error:', error);
-        res.json({
-            success: true,
-            data: []
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch messages'
         });
     }
 };
 
 // Send Message
-exports.sendMessage = async (req, res) => {
+const sendMessage = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { receiver_id, product_id, content, conversation_id } = req.body;
+        const { receiver_id, product_id, content } = req.body;
 
         if (!receiver_id || !content) {
             return res.status(400).json({
                 success: false,
-                error: 'Receiver and content are required'
+                error: 'Receiver ID and content are required'
             });
         }
 
-        const messageData = {
-            sender_id: userId,
-            receiver_id,
-            content,
-            conversation_id: conversation_id || `${userId}-${receiver_id}`,
-            product_id: product_id || null
-        };
-
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('messages')
-            .insert([messageData])
+            .insert({
+                sender_id: userId,
+                receiver_id,
+                product_id,
+                content
+            })
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Send message error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
 
-        res.json({
+        res.status(201).json({
             success: true,
             message: 'Message sent successfully',
             data
@@ -732,28 +793,57 @@ exports.sendMessage = async (req, res) => {
 };
 
 // Mark Message as Read
-exports.markMessageRead = async (req, res) => {
+const markMessageRead = async (req, res) => {
     try {
         const userId = req.user.id;
         const { id } = req.params;
 
-        const { error } = await supabase
+        const { error } = await supabaseAdmin
             .from('messages')
             .update({ is_read: true })
             .eq('id', id)
             .eq('receiver_id', userId);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Mark message read error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
 
         res.json({
             success: true,
             message: 'Message marked as read'
         });
     } catch (error) {
-        console.error('Mark message error:', error);
+        console.error('Mark message read error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to mark message'
+            error: 'Failed to mark message as read'
         });
     }
+};
+
+module.exports = {
+    getDashboardStats,
+    getUserListings,
+    updateListing,
+    deleteListing,
+    getUserFavorites,
+    addFavorite,
+    removeFavorite,
+    getUserPurchases,
+    getUserProfile,
+    updateProfile,
+    uploadAvatar,
+    getUserSettings,
+    updateSettings,
+    changePassword,
+    getNotifications,
+    markNotificationRead,
+    markAllNotificationsRead,
+    getMessages,
+    sendMessage,
+    markMessageRead
 };

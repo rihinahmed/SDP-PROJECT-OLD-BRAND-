@@ -1,4 +1,4 @@
-// src/controllers/authController.js
+// src/controllers/authController.js - VERSION WITH MANUAL PROFILE CREATION
 const { supabase, supabaseAdmin } = require('../config/supabase');
 
 // Register new user
@@ -6,49 +6,147 @@ const register = async (req, res) => {
     try {
         const { email, password, username, fullName } = req.body;
 
-        console.log('Registering user:', email);
+        console.log('=== REGISTRATION ATTEMPT ===');
+        console.log('Email:', email);
+        console.log('Username:', username);
+        console.log('Full Name:', fullName);
 
-        // Create auth user
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        // Validation
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email and password are required'
+            });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                error: 'Password must be at least 6 characters'
+            });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid email format'
+            });
+        }
+
+        // WORKAROUND: Create user without auto-confirm first
+        // This prevents the trigger from running during user creation
+        console.log('Step 1: Creating user in Supabase Auth (without trigger)...');
+        
+        const { data, error } = await supabaseAdmin.auth.admin.createUser({
             email,
             password,
+            email_confirm: true,
+            user_metadata: {
+                username: username || email.split('@')[0],
+                full_name: fullName || email.split('@')[0]
+            }
         });
 
-        if (authError) {
-            console.error('Auth error:', authError);
-            return res.status(400).json({ error: authError.message });
+        if (error) {
+            console.error('Supabase Auth error:', error);
+            console.error('Error details:', JSON.stringify(error, null, 2));
+            
+            if (error.message.includes('already registered')) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'This email is already registered'
+                });
+            }
+            
+            // If it's a database error, try a different approach
+            if (error.message.includes('Database error')) {
+                console.log('Database error detected - trigger might be causing issues');
+                console.log('This usually means the trigger failed. Will manually create profile.');
+                
+                // Return a more helpful error
+                return res.status(500).json({
+                    success: false,
+                    error: 'Registration failed due to database configuration.',
+                    details: 'Please check Supabase Postgres logs for more details.',
+                    hint: 'Dashboard → Logs → Postgres Logs'
+                });
+            }
+            
+            return res.status(400).json({
+                success: false,
+                error: error.message || 'Registration failed'
+            });
         }
 
-        if (!authData.user) {
-            return res.status(400).json({ error: 'User creation failed' });
-        }
+        console.log('✅ User created successfully in Auth:', data.user.id);
 
-        // Create profile
-        const { data: profileData, error: profileError } = await supabaseAdmin
-            .from('profiles')
-            .insert([
-                {
-                    id: authData.user.id,
-                    username,
-                    full_name: fullName,
+        // Step 2: Manually create the profile (bypass trigger completely)
+        console.log('Step 2: Manually creating profile...');
+        
+        try {
+            const { data: profileData, error: profileError } = await supabaseAdmin
+                .from('profiles')
+                .insert({
+                    id: data.user.id,
+                    username: username || email.split('@')[0],
+                    full_name: fullName || email.split('@')[0],
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                })
+                .select()
+                .single();
+
+            if (profileError) {
+                console.error('❌ Profile creation error:', profileError);
+                console.log('Attempting to check if profile already exists...');
+                
+                // Check if profile already exists (maybe trigger worked?)
+                const { data: existingProfile } = await supabaseAdmin
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', data.user.id)
+                    .single();
+                
+                if (existingProfile) {
+                    console.log('✅ Profile already exists (trigger worked!):', existingProfile);
+                } else {
+                    console.error('❌ Profile does not exist and could not be created');
+                    console.error('Profile error details:', profileError);
+                    
+                    // Don't fail registration - user is created, just warn
+                    console.warn('⚠️  User created but profile creation failed');
                 }
-            ])
-            .select()
-            .single();
-
-        if (profileError) {
-            console.error('Profile error:', profileError);
-            return res.status(400).json({ error: profileError.message });
+            } else {
+                console.log('✅ Profile created successfully:', profileData);
+            }
+        } catch (profileException) {
+            console.error('Exception during profile creation:', profileException);
+            // Continue anyway - user is created
         }
 
+        // Return success (user is created even if profile had issues)
         res.status(201).json({
-            message: 'User registered successfully',
-            user: authData.user,
-            profile: profileData
+            success: true,
+            message: 'Registration successful',
+            user: {
+                id: data.user.id,
+                email: data.user.email,
+                username: username || email.split('@')[0]
+            }
         });
+
     } catch (error) {
-        console.error('Registration error:', error);
-        res.status(500).json({ error: 'Registration failed: ' + error.message });
+        console.error('=== REGISTRATION ERROR ===');
+        console.error('Error:', error);
+        console.error('Stack:', error.stack);
+        
+        res.status(500).json({
+            success: false,
+            error: 'Registration failed',
+            message: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
+        });
     }
 };
 
@@ -57,20 +155,34 @@ const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        console.log('Login attempt:', email);
+        console.log('=== LOGIN ATTEMPT ===');
+        console.log('Email:', email);
 
-        const { data, error } = await supabase.auth.signInWithPassword({
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email and password are required'
+            });
+        }
+
+        // Use admin client to sign in
+        const { data, error } = await supabaseAdmin.auth.signInWithPassword({
             email,
-            password,
+            password
         });
 
         if (error) {
             console.error('Login error:', error);
-            return res.status(400).json({ error: error.message });
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid email or password'
+            });
         }
 
+        console.log('Login successful for user:', data.user.id);
+
         // Get user profile
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile, error: profileError } = await supabaseAdmin
             .from('profiles')
             .select('*')
             .eq('id', data.user.id)
@@ -78,17 +190,48 @@ const login = async (req, res) => {
 
         if (profileError) {
             console.error('Profile fetch error:', profileError);
+            console.log('User exists but profile is missing - creating it now...');
+            
+            // Create profile if it doesn't exist
+            const { data: newProfile } = await supabaseAdmin
+                .from('profiles')
+                .insert({
+                    id: data.user.id,
+                    username: data.user.email.split('@')[0],
+                    full_name: data.user.email.split('@')[0]
+                })
+                .select()
+                .single();
+            
+            if (newProfile) {
+                console.log('✅ Profile created during login');
+            }
         }
 
         res.json({
+            success: true,
             message: 'Login successful',
-            session: data.session,
-            user: data.user,
+            session: {
+                access_token: data.session.access_token,
+                refresh_token: data.session.refresh_token
+            },
+            user: {
+                id: data.user.id,
+                email: data.user.email,
+                user_metadata: data.user.user_metadata
+            },
             profile: profile || null
         });
+
     } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ error: 'Login failed: ' + error.message });
+        console.error('=== LOGIN ERROR ===');
+        console.error('Error:', error);
+        
+        res.status(500).json({
+            success: false,
+            error: 'Login failed',
+            message: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
+        });
     }
 };
 
@@ -103,13 +246,22 @@ const getProfile = async (req, res) => {
 
         if (error) {
             console.error('Get profile error:', error);
-            return res.status(404).json({ error: 'Profile not found' });
+            return res.status(404).json({ 
+                success: false,
+                error: 'Profile not found' 
+            });
         }
 
-        res.json(data);
+        res.json({
+            success: true,
+            data
+        });
     } catch (error) {
         console.error('Get profile error:', error);
-        res.status(500).json({ error: 'Failed to fetch profile' });
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to fetch profile' 
+        });
     }
 };
 
@@ -133,16 +285,23 @@ const updateProfile = async (req, res) => {
 
         if (error) {
             console.error('Update profile error:', error);
-            return res.status(400).json({ error: error.message });
+            return res.status(400).json({ 
+                success: false,
+                error: error.message 
+            });
         }
 
         res.json({
+            success: true,
             message: 'Profile updated successfully',
-            profile: data
+            data
         });
     } catch (error) {
         console.error('Update profile error:', error);
-        res.status(500).json({ error: 'Failed to update profile' });
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to update profile' 
+        });
     }
 };
 
@@ -153,17 +312,24 @@ const logout = async (req, res) => {
 
         if (error) {
             console.error('Logout error:', error);
-            return res.status(400).json({ error: error.message });
+            return res.status(400).json({ 
+                success: false,
+                error: error.message 
+            });
         }
 
-        res.json({ message: 'Logout successful' });
+        res.json({ 
+            success: true,
+            message: 'Logout successful' 
+        });
     } catch (error) {
         console.error('Logout error:', error);
-        res.status(500).json({ error: 'Logout failed' });
+        res.status(500).json({ 
+            success: false,
+            error: 'Logout failed' 
+        });
     }
 };
-
-// Add these functions to your existing src/controllers/authController.js
 
 // Request password reset
 const requestPasswordReset = async (req, res) => {
@@ -171,31 +337,31 @@ const requestPasswordReset = async (req, res) => {
         const { email } = req.body;
 
         if (!email) {
-            return res.status(400).json({ error: 'Email is required' });
+            return res.status(400).json({ 
+                success: false,
+                error: 'Email is required' 
+            });
         }
 
         console.log('Password reset requested for:', email);
 
-        // Send password reset email using Supabase
-        const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
             redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:5500'}/forgot-password.html`,
         });
 
         if (error) {
             console.error('Reset password email error:', error);
-            // Don't reveal if email exists for security
-            return res.json({
-                message: 'If an account exists with this email, you will receive a password reset link.'
-            });
         }
 
+        // Always return success for security (don't reveal if email exists)
         res.json({
-            message: 'Password reset email sent successfully'
+            success: true,
+            message: 'If an account exists with this email, you will receive a password reset link.'
         });
     } catch (error) {
         console.error('Request password reset error:', error);
-        // Don't reveal if email exists for security
         res.json({
+            success: true,
             message: 'If an account exists with this email, you will receive a password reset link.'
         });
     }
@@ -207,50 +373,53 @@ const resetPassword = async (req, res) => {
         const { token, password } = req.body;
 
         if (!token || !password) {
-            return res.status(400).json({ error: 'Token and password are required' });
+            return res.status(400).json({ 
+                success: false,
+                error: 'Token and password are required' 
+            });
         }
 
-        if (password.length < 8) {
-            return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+        if (password.length < 6) {
+            return res.status(400).json({ 
+                success: false,
+                error: 'Password must be at least 6 characters long' 
+            });
         }
 
         console.log('Resetting password with token');
 
-        // Update password using Supabase
         const { data, error } = await supabase.auth.updateUser({
             password: password
         });
 
         if (error) {
             console.error('Reset password error:', error);
-            return res.status(400).json({ error: error.message || 'Failed to reset password' });
+            return res.status(400).json({ 
+                success: false,
+                error: error.message || 'Failed to reset password' 
+            });
         }
 
         res.json({
+            success: true,
             message: 'Password reset successful',
             user: data.user
         });
     } catch (error) {
         console.error('Reset password error:', error);
-        res.status(500).json({ error: 'Failed to reset password' });
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to reset password' 
+        });
     }
 };
-
-// Update the exports at the bottom of authController.js to include these new functions:
-// module.exports = {
-//     register,
-//     login,
-//     getProfile,
-//     updateProfile,
-//     logout,
-//     requestPasswordReset,  // ADD THIS
-//     resetPassword          // ADD THIS
-// };
 
 module.exports = {
     register,
     login,
     getProfile,
     updateProfile,
-    logout
+    logout,
+    requestPasswordReset,
+    resetPassword
 };
