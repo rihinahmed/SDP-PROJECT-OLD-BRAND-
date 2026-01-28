@@ -431,14 +431,19 @@ function renderSettings() {
 }
 
 // Modal Controllers
+// Modal Controllers
+
 function createSellModal() {
     if (document.getElementById('sellModal')) return;
 
     const modalHTML = `
         <div id="sellModal" class="modal">
-            <div class="modal-content">
+            <div class="modal-content modal-sell-item">
                 <div class="modal-header">
-                    <h2 class="modal-title">List Your Item</h2>
+                    <div>
+                        <h2 class="modal-title">List Your Item</h2>
+                        <p style="color: var(--gray-500); font-size: 0.875rem; margin-top: 0.25rem;">Give your item a second life ♻️</p>
+                    </div>
                     <button class="modal-close" id="closeSellModalDash">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -446,74 +451,105 @@ function createSellModal() {
                         </svg>
                     </button>
                 </div>
-                <form id="sellFormDash" class="sell-form">
-                    <div class="form-group">
-                        <label class="form-label">Product Image *</label>
-                        <div class="image-upload" id="imageUploadAreaDash">
-                            <div id="uploadPromptDash">
-                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                    <polyline points="17 8 12 3 7 8"></polyline>
-                                    <line x1="12" y1="3" x2="12" y2="15"></line>
-                                </svg>
-                                <p>Click to upload or drag and drop</p>
-                                <label for="imageInputDash" class="upload-btn">Choose File</label>
+                
+                <form id="sellFormDash" class="sell-form-layout">
+                    <!-- Left Column: Image Upload -->
+                    <div class="sell-column-left">
+                        <div class="form-group" style="height: 100%;">
+                            <label class="form-label">Product Image</label>
+                            <div class="image-upload-large" id="imageUploadAreaDash">
+                                <div id="uploadPromptDash" class="upload-prompt-content">
+                                    <div class="upload-icon-circle">
+                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                            <polyline points="17 8 12 3 7 8"></polyline>
+                                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                                        </svg>
+                                    </div>
+                                    <h4>Upload Photo</h4>
+                                    <p>Drag & drop or click to browse</p>
+                                    <span class="file-support-text">Supports JPG, PNG</span>
+                                </div>
+                                
+                                <div id="imagePreviewDash" class="image-preview-container" style="display: none;">
+                                    <img id="previewImgDash" src="" alt="Preview">
+                                    <button type="button" id="removeImageDash" class="remove-image-btn">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
-                            <div id="imagePreviewDash" style="display: none;">
-                                <img id="previewImgDash" src="" alt="Preview">
-                                <button type="button" id="removeImageDash" class="remove-image">×</button>
+                            <input type="file" id="imageInputDash" accept="image/*" style="display: none;">
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Details -->
+                    <div class="sell-column-right">
+                        <div class="form-group">
+                            <label class="form-label">Product Name</label>
+                            <input type="text" id="productNameDash" class="input-styled" placeholder="e.g., Vintage Denim Jacket" required>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Price (BDT)</label>
+                                <div class="input-with-icon">
+                                    <span class="input-icon">৳</span>
+                                    <input type="number" id="productPriceDash" class="input-styled" placeholder="0.00" step="0.01" min="0" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Category</label>
+                                <div class="select-wrapper">
+                                    <select id="productCategoryDash" class="input-styled" required>
+                                        <option value="" disabled selected>Select Category</option>
+                                        <option value="Tops">👕 Tops</option>
+                                        <option value="Bottoms">👖 Bottoms</option>
+                                        <option value="Dresses">👗 Dresses</option>
+                                        <option value="Accessories">💍 Accessories</option>
+                                        <option value="Shoes">👠 Shoes</option>
+                                        <option value="Bags">👜 Bags</option>
+                                        <option value="Eyewear">🕶️ Eyewear</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
-                        <input type="file" id="imageInputDash" accept="image/*" style="display: none;">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Product Name *</label>
-                        <input type="text" id="productNameDash" placeholder="e.g., Vintage Denim Jacket" required>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Price (BDT) *</label>
-                            <input type="number" id="productPriceDash" placeholder="0.00" step="0.01" min="0" required>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Condition</label>
+                                <div class="select-wrapper">
+                                    <select id="productConditionDash" class="input-styled" required>
+                                        <option value="" disabled selected>Select Condition</option>
+                                        <option value="Like New">✨ Like New</option>
+                                        <option value="Good">👍 Good</option>
+                                        <option value="Fair">👌 Fair</option>
+                                        <option value="Well Used">♻️ Well Used</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Size</label>
+                                <input type="text" id="productSizeDash" class="input-styled" placeholder="e.g. M, 42">
+                            </div>
                         </div>
+
                         <div class="form-group">
-                            <label class="form-label">Category *</label>
-                            <select id="productCategoryDash" required>
-                                <option value="Tops">Tops</option>
-                                <option value="Bottoms">Bottoms</option>
-                                <option value="Dresses">Dresses</option>
-                                <option value="Accessories">Accessories</option>
-                                <option value="Shoes">Shoes</option>
-                                <option value="Bags">Bags</option>
-                                <option value="Eyewear">Eyewear</option>
-                            </select>
+                            <label class="form-label">Usage Time</label>
+                            <input type="text" id="productUsageTimeDash" class="input-styled" placeholder="e.g., 6 months" required>
                         </div>
-                    </div>
-                    <div class="form-row">
+
                         <div class="form-group">
-                            <label class="form-label">Condition *</label>
-                            <select id="productConditionDash" required>
-                                <option value="Like New">Like New</option>
-                                <option value="Good">Good</option>
-                                <option value="Fair">Fair</option>
-                                <option value="Well Used">Well Used</option>
-                            </select>
+                            <label class="form-label">Description</label>
+                            <textarea id="productDescriptionDash" class="input-styled" rows="4" placeholder="Tell the story of this item..." required></textarea>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Usage Time *</label>
-                            <input type="text" id="productUsageTimeDash" placeholder="e.g., 6 months, 2 years" required>
+
+                        <div class="form-actions-sticky">
+                            <button type="button" class="btn-secondary" id="cancelSellDash">Cancel</button>
+                            <button type="submit" class="btn-primary">List Now</button>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Size (Optional)</label>
-                        <input type="text" id="productSizeDash" placeholder="e.g., M, L, 10, EU 40">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Description *</label>
-                        <textarea id="productDescriptionDash" rows="4" placeholder="Describe your item..." required></textarea>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" id="cancelSellDash">Cancel</button>
-                        <button type="submit" class="btn-primary">List Item</button>
                     </div>
                 </form>
             </div>
@@ -537,7 +573,8 @@ function createSellModal() {
             reader.onload = (e) => {
                 document.getElementById('previewImgDash').src = e.target.result;
                 document.getElementById('uploadPromptDash').style.display = 'none';
-                document.getElementById('imagePreviewDash').style.display = 'block';
+                document.getElementById('imagePreviewDash').style.display = 'flex';
+                uploadArea.classList.add('has-image');
             };
             reader.readAsDataURL(file);
         }
@@ -546,12 +583,58 @@ function createSellModal() {
     document.getElementById('removeImageDash').onclick = (e) => {
         e.stopPropagation();
         imageInput.value = '';
-        document.getElementById('uploadPromptDash').style.display = 'block';
+        document.getElementById('uploadPromptDash').style.display = 'flex';
         document.getElementById('imagePreviewDash').style.display = 'none';
+        uploadArea.classList.remove('has-image');
     };
     
     document.getElementById('sellFormDash').onsubmit = handleSellFormSubmit;
+    setupAutoConditionSelection();
+    
 }
+
+function setupAutoConditionSelection() {
+    const usageTimeInput = document.getElementById('productUsageTimeDash');
+    const conditionSelect = document.getElementById('productConditionDash');
+    
+    if (!usageTimeInput || !conditionSelect) return;
+    
+    usageTimeInput.addEventListener('input', (e) => {
+        const value = e.target.value.trim();
+        const months = parseInt(value);
+        
+        // Only works if input is a number
+        if (!isNaN(months) && value === months.toString() && months >= 0) {
+            let selectedCondition = '';
+            
+            // Auto-select based on months
+            if (months <= 3) {
+                selectedCondition = 'Like New';
+            } else if (months <= 12) {
+                selectedCondition = 'Good';
+            } else if (months <= 24) {
+                selectedCondition = 'Fair';
+            } else {
+                selectedCondition = 'Well Used';
+            }
+            
+            // Set dropdown and add visual effect
+            conditionSelect.value = selectedCondition;
+            conditionSelect.style.transition = 'all 0.3s ease';
+            conditionSelect.style.background = 'linear-gradient(135deg, #a855f7, #ec4899)';
+            conditionSelect.style.color = 'white';
+            conditionSelect.style.fontWeight = 'bold';
+            
+            setTimeout(() => {
+                conditionSelect.style.background = '';
+                conditionSelect.style.color = '';
+                conditionSelect.style.fontWeight = '';
+            }, 600);
+        }
+    });
+}
+
+
 
 // Add New Listing Trigger
 document.getElementById('addListingBtn')?.addEventListener('click', () => {
@@ -755,34 +838,71 @@ function initializeSettingsListeners() {
 }
 
 // Security Actions (Password, 2FA)
-document.querySelectorAll('.settings-actions .btn-secondary')[0]?.addEventListener('click', async () => {
-    const currentPassword = prompt('Enter your current password:');
-    if (!currentPassword) return;
+// Change Password Modal Logic
+const changePasswordBtn = document.getElementById('changePasswordBtn');
+const changePasswordModal = document.getElementById('changePasswordModal');
+const closeChangePasswordModal = document.getElementById('closeChangePasswordModal');
+const cancelChangePassword = document.getElementById('cancelChangePassword');
+const changePasswordForm = document.getElementById('changePasswordForm');
 
-    const newPassword = prompt('Enter new password (min 6 characters):');
-    if (!newPassword || newPassword.length < 6) {
-        showNotification('Password must be at least 6 characters', 'error');
-        return;
+// Open Modal
+changePasswordBtn?.addEventListener('click', () => {
+    changePasswordForm.reset();
+    changePasswordModal.classList.add('active');
+});
+
+// Close Modal
+function hidePasswordModal() {
+    changePasswordModal.classList.remove('active');
+}
+
+closeChangePasswordModal?.addEventListener('click', hidePasswordModal);
+cancelChangePassword?.addEventListener('click', hidePasswordModal);
+
+// Close on click outside
+window.addEventListener('click', (e) => {
+    if (e.target === changePasswordModal) {
+        hidePasswordModal();
     }
-    const confirmPassword = prompt('Confirm new password:');
+});
+
+// Handle Form Submit
+changePasswordForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmNewPassword').value;
+
     if (newPassword !== confirmPassword) {
         showNotification('Passwords do not match', 'error');
         return;
     }
+    
+    if (newPassword.length < 6) {
+        showNotification('Password must be at least 6 characters', 'error');
+        return;
+    }
+
     try {
         showLoading(true);
         await apiRequest('/dashboard/change-password', {
             method: 'POST',
-            body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+            body: JSON.stringify({ 
+                current_password: currentPassword, 
+                new_password: newPassword 
+            })
         });
+        
         showNotification('Password changed successfully', 'success');
+        hidePasswordModal();
+        changePasswordForm.reset();
     } catch (error) {
         showError(error.message || 'Failed to change password');
     } finally {
         showLoading(false);
     }
 });
-
 document.querySelectorAll('.settings-actions .btn-secondary')[1]?.addEventListener('click', () => {
     showNotification('Two-factor authentication coming soon!', 'info');
 });

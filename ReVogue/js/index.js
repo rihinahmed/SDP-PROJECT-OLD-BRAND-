@@ -58,9 +58,6 @@ const API = {
             if (!response.ok) throw new Error('Failed to fetch products');
             
             const data = await response.json();
-            console.log('API Response:', data); // Debug log
-            
-            // FIXED: Return the data array, not the whole response
             return data.data || data || [];
         } catch (error) {
             console.error('Get products error:', error);
@@ -74,7 +71,6 @@ const API = {
             if (!response.ok) throw new Error('Product not found');
             
             const data = await response.json();
-            // FIXED: Return the data object
             return data.data || data;
         } catch (error) {
             console.error('Get product error:', error);
@@ -137,7 +133,6 @@ const API = {
             if (!response.ok) throw new Error('Failed to fetch favorites');
             
             const data = await response.json();
-            // FIXED: Return the data array
             return data.data || data || [];
         } catch (error) {
             console.error('Get favorites error:', error);
@@ -185,39 +180,6 @@ const API = {
         }
     }
 };
-
-// ALSO UPDATE: Load products function
-async function loadProducts() {
-    try {
-        console.log('Loading products with filters:', filters);
-        
-        const filterParams = {
-            category: filters.category,
-            maxPrice: filters.maxPrice,
-            sortBy: filters.sortBy,
-            search: filters.searchQuery
-        };
-        
-        // Add condition filter if any selected
-        if (filters.conditions.length > 0) {
-            filterParams.condition = filters.conditions[0];
-        }
-
-        products = await API.getProducts(filterParams);
-        
-        console.log('Loaded products:', products.length, products);
-        
-        // Load favorites if authenticated
-        if (AuthService.isAuthenticated()) {
-            await loadFavorites();
-        }
-        
-        renderProducts(products);
-    } catch (error) {
-        console.error('Error loading products:', error);
-        showNotification('Failed to load products. Check console for details.', 'error');
-    }
-}
 
 // Particle Animation
 const canvas = document.getElementById('particleCanvas');
@@ -293,7 +255,7 @@ const categories = [
 
 // Products State
 let products = [];
-let userFavorites = new Set();
+let userFavorites = new Map(); // Changed to Map to store favoriteId -> productId mapping
 
 // Filters State
 let filters = {
@@ -316,7 +278,7 @@ async function loadProducts() {
         
         // Add condition filter if any selected
         if (filters.conditions.length > 0) {
-            filterParams.condition = filters.conditions[0]; // API expects single condition
+            filterParams.condition = filters.conditions[0];
         }
 
         products = await API.getProducts(filterParams);
@@ -333,20 +295,26 @@ async function loadProducts() {
     }
 }
 
-// Load user favorites
+// Load user favorites - FIXED to store favorite IDs
 async function loadFavorites() {
     try {
         const favorites = await API.getFavorites();
         console.log('Loaded favorites:', favorites);
         
-        // Map favorites to Set of product IDs
+        // Clear existing favorites
+        userFavorites.clear();
+        
+        // Map productId -> favoriteId for easy lookup
         if (Array.isArray(favorites)) {
-            userFavorites = new Set(
-                favorites
-                    .map(fav => fav.products?.id || fav.product_id)
-                    .filter(Boolean)
-            );
+            favorites.forEach(fav => {
+                const productId = fav.products?.id || fav.product_id;
+                if (productId) {
+                    userFavorites.set(productId, fav.id); // Store favorite ID, not product ID
+                }
+            });
         }
+        
+        console.log('User favorites map:', userFavorites);
     } catch (error) {
         console.error('Error loading favorites:', error);
     }
@@ -355,6 +323,11 @@ async function loadFavorites() {
 // Check if product is favorited
 function isFavorited(productId) {
     return userFavorites.has(productId);
+}
+
+// Get favorite ID for a product
+function getFavoriteId(productId) {
+    return userFavorites.get(productId);
 }
 
 // Render Categories
@@ -472,7 +445,7 @@ function renderProducts(productsToRender) {
     });
 }
 
-// Toggle Like
+// Toggle Like - FIXED to use favorite ID for removal
 async function toggleLike(event, productId) {
     event.stopPropagation();
     
@@ -482,15 +455,31 @@ async function toggleLike(event, productId) {
     }
     
     try {
-        const isLiked = userFavorites.has(productId);
+        const isLiked = isFavorited(productId);
         
         if (isLiked) {
-            await API.removeFromFavorites(productId);
+            // Get the favorite ID from our map
+            const favoriteId = getFavoriteId(productId);
+            console.log('Removing favorite:', { productId, favoriteId });
+            
+            if (!favoriteId) {
+                console.error('Favorite ID not found for product:', productId);
+                showNotification('Error removing favorite', 'error');
+                return;
+            }
+            
+            await API.removeFromFavorites(favoriteId);
             userFavorites.delete(productId);
             showNotification('Removed from favorites', 'success');
         } else {
-            await API.addToFavorites(productId);
-            userFavorites.add(productId);
+            console.log('Adding favorite:', productId);
+            const response = await API.addToFavorites(productId);
+            
+            // Store the new favorite ID
+            if (response.data && response.data.id) {
+                userFavorites.set(productId, response.data.id);
+            }
+            
             showNotification('Added to favorites', 'success');
         }
         
@@ -593,7 +582,6 @@ function handleBuyNow(productId) {
         return;
     }
     
-    // TODO: Implement checkout flow
     showNotification('Checkout feature coming soon!', 'info');
 }
 
@@ -605,13 +593,11 @@ function handleMessageSeller(sellerId, productId) {
         return;
     }
     
-    // TODO: Implement messaging
     showNotification('Messaging feature coming soon!', 'info');
 }
 
 // Show Notification
 function showNotification(message, type = 'info') {
-    // Create notification element
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
     notification.textContent = message;
@@ -658,7 +644,7 @@ document.getElementById('searchInput').addEventListener('input', (e) => {
     clearTimeout(window.searchTimeout);
     window.searchTimeout = setTimeout(() => {
         loadProducts();
-    }, 500); // Debounce search
+    }, 500);
 });
 
 // Clear Filters

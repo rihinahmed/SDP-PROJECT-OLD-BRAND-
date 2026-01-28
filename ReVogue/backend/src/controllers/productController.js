@@ -1,9 +1,12 @@
-// src/controllers/productController.js - FIXED VERSION
+// src/controllers/productController.js - FINAL FIXED VERSION
 const { supabase, supabaseAdmin } = require('../config/supabase');
 
 // Get all products with filters
 exports.getAllProducts = async (req, res) => {
     try {
+        console.log('=== GET ALL PRODUCTS ===');
+        console.log('Query params:', req.query);
+        
         const { category, condition, max_price, sort, search } = req.query;
 
         // Use regular supabase client for public read operations
@@ -17,7 +20,7 @@ exports.getAllProducts = async (req, res) => {
                     avatar_url
                 )
             `)
-            .eq('status', 'available');
+            .eq('status', 'available'); // CRITICAL: Only show 'available' products
 
         if (category && category !== 'All') {
             query = query.eq('category', category);
@@ -46,7 +49,18 @@ exports.getAllProducts = async (req, res) => {
 
         const { data, error } = await query;
 
-        if (error) throw error;
+        console.log('Query result - Error:', error);
+        console.log('Query result - Data count:', data?.length || 0);
+        if (data && data.length > 0) {
+            console.log('Query result - First item:', data[0]);
+        }
+
+        if (error) {
+            console.error('Supabase query error:', error);
+            throw error;
+        }
+
+        console.log('Returning products:', data?.length || 0);
 
         res.json({
             success: true,
@@ -107,7 +121,8 @@ exports.createProduct = async (req, res) => {
     try {
         const userId = req.user.id;
         
-        // IMPORTANT: Log the entire body to see what we're receiving
+        console.log('=== CREATE PRODUCT ===');
+        console.log('User ID:', userId);
         console.log('RAW Request Body:', req.body);
         console.log('Request File:', req.file);
         
@@ -117,24 +132,51 @@ exports.createProduct = async (req, res) => {
         // Use either usageTime or usage_time (frontend might send either)
         const finalUsageTime = usageTime || usage_time;
         
-        console.log('Creating product with data:', { 
+        // Auto-determine condition based on usage time if condition not provided or if usage time is a number
+        let finalCondition = condition;
+        
+        // Check if usageTime is a number (months)
+        const usageMonths = parseInt(finalUsageTime);
+        if (!isNaN(usageMonths)) {
+            // Auto-calculate condition based on months
+            if (usageMonths <= 3) {
+                finalCondition = 'Like New';
+            } else if (usageMonths <= 12) {
+                finalCondition = 'Good';
+            } else if (usageMonths <= 24) {
+                finalCondition = 'Fair';
+            } else {
+                finalCondition = 'Well Used';
+            }
+            console.log(`Auto-selected condition: ${finalCondition} (based on ${usageMonths} months)`);
+        }
+        
+        console.log('Extracted data:', { 
             name, 
             description, 
             price, 
             category, 
-            condition, 
+            condition: finalCondition, 
             size, 
-            usageTime, 
-            usage_time,
-            finalUsageTime 
+            finalUsageTime,
+            usageMonths: !isNaN(usageMonths) ? usageMonths : 'N/A'
         });
 
-        // Validation
-        if (!name || !description || !price || !category || !condition || !finalUsageTime) {
+        // Validation (condition is optional now if usage time is provided as months)
+        if (!name || !description || !price || !category || !finalUsageTime) {
+            console.error('Validation failed - missing required fields');
             return res.status(400).json({
                 success: false,
                 error: 'Missing required fields',
-                received: { name, description, price, category, condition, size, usageTime, usage_time }
+                details: 'Required: name, description, price, category, usageTime (condition will be auto-calculated if usage time is in months)',
+                received: { 
+                    name: !!name, 
+                    description: !!description, 
+                    price: !!price, 
+                    category: !!category, 
+                    usageTime: !!finalUsageTime,
+                    autoCondition: finalCondition
+                }
             });
         }
 
@@ -142,11 +184,12 @@ exports.createProduct = async (req, res) => {
 
         // Upload image if provided
         if (file) {
+            console.log('Uploading image...');
             const fileExt = file.originalname.split('.').pop();
             const fileName = `${userId}-${Date.now()}.${fileExt}`;
             const filePath = `${userId}/${fileName}`;
 
-            const { error: uploadError } = await supabase.storage
+            const { error: uploadError } = await supabaseAdmin.storage
                 .from('products')
                 .upload(filePath, file.buffer, {
                     contentType: file.mimetype,
@@ -158,25 +201,29 @@ exports.createProduct = async (req, res) => {
                 throw uploadError;
             }
 
-            const { data: { publicUrl } } = supabase.storage
+            const { data: { publicUrl } } = supabaseAdmin.storage
                 .from('products')
                 .getPublicUrl(filePath);
 
             imageUrl = publicUrl;
+            console.log('Image uploaded:', imageUrl);
         }
 
-        // FIXED: Map usageTime to usage_time for database
+        // CRITICAL FIX: Set status to 'available' to match getAllProducts filter
         const productData = {
             user_id: userId,
             name: name.trim(),
             description: description.trim(),
             price: parseFloat(price),
             category: category.trim(),
-            condition: condition.trim(),
+            condition: finalCondition.trim(), // Use auto-calculated or provided condition
             size: size ? size.trim() : null,
-            usage_time: finalUsageTime.trim(), // FIXED: use finalUsageTime
+            usage_time: finalUsageTime.trim(),
             image_url: imageUrl,
-            status: 'available'
+            status: 'available', // ✅ FIXED: Changed from 'active' to 'available'
+            views: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
         };
 
         console.log('Inserting product data:', productData);
@@ -189,8 +236,12 @@ exports.createProduct = async (req, res) => {
 
         if (error) {
             console.error('Database insert error:', error);
+            console.error('Error details:', JSON.stringify(error, null, 2));
             throw error;
         }
+
+        console.log('✅ Product created successfully:', data.id);
+        console.log('Product status:', data.status);
 
         res.status(201).json({
             success: true,
@@ -198,7 +249,8 @@ exports.createProduct = async (req, res) => {
             data
         });
     } catch (error) {
-        console.error('Create product error:', error);
+        console.error('=== CREATE PRODUCT ERROR ===');
+        console.error('Error:', error);
         res.status(500).json({
             success: false,
             error: error.message || 'Failed to create product'
@@ -211,11 +263,18 @@ exports.updateProduct = async (req, res) => {
     try {
         const userId = req.user.id;
         const { id } = req.params;
-        const { name, description, price, category, condition, size, usageTime } = req.body;
+        const { name, description, price, category, condition, size, usageTime, usage_time } = req.body;
         const file = req.file;
 
+        console.log('=== UPDATE PRODUCT ===');
+        console.log('Product ID:', id);
+        console.log('User ID:', userId);
+
+        // Use either usageTime or usage_time
+        const finalUsageTime = usageTime || usage_time;
+
         // Verify ownership
-        const { data: existingProduct, error: fetchError } = await supabase
+        const { data: existingProduct, error: fetchError } = await supabaseAdmin
             .from('products')
             .select('user_id, image_url')
             .eq('id', id)
@@ -235,17 +294,22 @@ exports.updateProduct = async (req, res) => {
             });
         }
 
-        const updates = {};
+        const updates = {
+            updated_at: new Date().toISOString()
+        };
+        
         if (name) updates.name = name.trim();
         if (description) updates.description = description.trim();
         if (price) updates.price = parseFloat(price);
         if (category) updates.category = category.trim();
         if (condition) updates.condition = condition.trim();
         if (size !== undefined) updates.size = size ? size.trim() : null;
-        if (usageTime) updates.usage_time = usageTime.trim(); // FIXED
+        if (finalUsageTime) updates.usage_time = finalUsageTime.trim();
 
         // Handle image upload
         if (file) {
+            console.log('Uploading new image...');
+            
             // Delete old image if exists
             if (existingProduct.image_url) {
                 const oldImagePath = existingProduct.image_url.split('/').slice(-2).join('/');
@@ -275,14 +339,21 @@ exports.updateProduct = async (req, res) => {
             updates.image_url = publicUrl;
         }
 
-        const { data, error } = await supabase
+        console.log('Updating with:', updates);
+
+        const { data, error } = await supabaseAdmin
             .from('products')
             .update(updates)
             .eq('id', id)
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Update error:', error);
+            throw error;
+        }
+
+        console.log('✅ Product updated successfully');
 
         res.json({
             success: true,
@@ -304,8 +375,12 @@ exports.deleteProduct = async (req, res) => {
         const userId = req.user.id;
         const { id } = req.params;
 
+        console.log('=== DELETE PRODUCT ===');
+        console.log('Product ID:', id);
+        console.log('User ID:', userId);
+
         // Verify ownership
-        const { data: product, error: fetchError } = await supabase
+        const { data: product, error: fetchError } = await supabaseAdmin
             .from('products')
             .select('user_id, image_url')
             .eq('id', id)
@@ -333,12 +408,17 @@ exports.deleteProduct = async (req, res) => {
                 .remove([imagePath]);
         }
 
-        const { error } = await supabase
+        const { error } = await supabaseAdmin
             .from('products')
             .delete()
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Delete error:', error);
+            throw error;
+        }
+
+        console.log('✅ Product deleted successfully');
 
         res.json({
             success: true,
