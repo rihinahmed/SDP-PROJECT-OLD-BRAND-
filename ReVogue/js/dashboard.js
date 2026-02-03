@@ -1,6 +1,8 @@
 // js/dashboard.js - COMPLETE FINAL VERSION
 const API_URL = 'http://localhost:3000/api';
 
+let ordersData = [];
+
 // Auth Service
 const AuthService = {
     getToken() {
@@ -120,6 +122,7 @@ async function initDashboard() {
             loadListings(),
             loadFavorites(),
             loadPurchases(),
+            loadOrders(),
             loadNotifications(),
             loadMessages(),
             loadSettings()
@@ -129,6 +132,7 @@ async function initDashboard() {
         renderFavorites();
         renderPurchases();
         renderSettings();
+        renderOrders(); 
         
         // Initialize interactive elements
         setTimeout(() => {
@@ -190,6 +194,196 @@ function updateProfileUI() {
     }
 }
 
+// 3. ADD NEW FUNCTION - Load Orders
+async function loadOrders() {
+    try {
+        console.log('=== LOADING ORDERS ===');
+        
+        const response = await apiRequest('/orders');
+        ordersData = response.data || [];
+        
+        console.log('Loaded orders:', ordersData.length);
+    } catch (error) {
+        console.error('Error loading orders:', error);
+        ordersData = [];
+    }
+}
+
+// 4. ADD NEW FUNCTION - Render Orders
+function renderOrders() {
+    const list = document.getElementById('ordersList');
+    if (!list) return;
+    
+    if (!ordersData || ordersData.length === 0) {
+        list.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📦</div>
+                <h3 class="empty-title">No orders yet</h3>
+                <p class="empty-description">Your orders will appear here</p>
+            </div>
+        `;
+        return;
+    }
+    
+    list.innerHTML = ordersData.map(order => {
+        const statusColors = {
+            'pending': 'background: #fef3c7; color: #92400e;',
+            'confirmed': 'background: #dbeafe; color: #1e40af;',
+            'processing': 'background: #e0e7ff; color: #3730a3;',
+            'shipped': 'background: #ddd6fe; color: #5b21b6;',
+            'delivered': 'background: #d1fae5; color: #065f46;',
+            'cancelled': 'background: #fee2e2; color: #991b1b;'
+        };
+        
+        return `
+            <div class="order-card">
+                <div class="order-header">
+                    <div class="order-info">
+                        <h4 class="order-number">#${order.order_number}</h4>
+                        <span class="order-date">
+                            ${new Date(order.created_at).toLocaleDateString('en-US', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric' 
+                            })}
+                        </span>
+                    </div>
+                    <span class="order-status-badge" style="${statusColors[order.status] || statusColors['pending']}">
+                        ${order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                    </span>
+                </div>
+                
+                <div class="order-body">
+                    <div class="order-product">
+                        <img src="${order.product_image || 'https://via.placeholder.com/80'}" 
+                             alt="${order.product_name}" 
+                             class="order-product-image">
+                        <div class="order-product-info">
+                            <h5 class="order-product-name">${order.product_name}</h5>
+                            <p class="order-product-price">BDT ${parseFloat(order.product_price).toFixed(2)}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="order-details">
+                        <div class="order-detail-row">
+                            <span class="order-detail-label">Subtotal:</span>
+                            <span>BDT ${parseFloat(order.subtotal).toFixed(2)}</span>
+                        </div>
+                        <div class="order-detail-row">
+                            <span class="order-detail-label">Shipping:</span>
+                            <span>BDT ${parseFloat(order.shipping_cost).toFixed(2)}</span>
+                        </div>
+                        ${order.discount_amount > 0 ? `
+                        <div class="order-detail-row">
+                            <span class="order-detail-label">Discount:</span>
+                            <span style="color: #10b981;">- BDT ${parseFloat(order.discount_amount).toFixed(2)}</span>
+                        </div>
+                        ` : ''}
+                        <div class="order-detail-row order-total">
+                            <span class="order-detail-label">Total:</span>
+                            <span>BDT ${parseFloat(order.total_amount).toFixed(2)}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="order-actions">
+                        <button class="btn-icon btn-view" onclick="viewOrderDetails('${order.id}')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            View Details
+                        </button>
+                        ${order.status === 'delivered' ? `
+                        <button class="btn-icon btn-review" onclick="reviewOrder('${order.id}')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                            </svg>
+                            Review
+                        </button>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 5. ADD NEW FUNCTION - View Order Details
+function viewOrderDetails(orderId) {
+    const order = ordersData.find(o => o.id === orderId);
+    if (!order) return;
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Order Details - #${order.order_number}</h2>
+                <button class="modal-close" onclick="this.closest('.modal').remove()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div style="padding: 1.5rem;">
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 0.875rem; font-weight: 600; color: #6b7280; margin-bottom: 0.5rem;">PRODUCT</h3>
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <img src="${order.product_image}" alt="${order.product_name}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 0.5rem;">
+                        <div>
+                            <h4 style="font-weight: 600; margin-bottom: 0.25rem;">${order.product_name}</h4>
+                            <p style="color: #6b7280;">BDT ${parseFloat(order.product_price).toFixed(2)}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 0.875rem; font-weight: 600; color: #6b7280; margin-bottom: 0.5rem;">SHIPPING ADDRESS</h3>
+                    <p>${order.customer_first_name} ${order.customer_last_name}</p>
+                    <p>${order.shipping_address}${order.shipping_apartment ? ', ' + order.shipping_apartment : ''}</p>
+                    <p>${order.shipping_city}, ${order.shipping_postal_code}</p>
+                    <p>${order.shipping_phone}</p>
+                </div>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 0.875rem; font-weight: 600; color: #6b7280; margin-bottom: 0.5rem;">PAYMENT</h3>
+                    <p>Method: ${order.payment_method.toUpperCase()}</p>
+                    <p>Status: ${order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1)}</p>
+                </div>
+                
+                <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Subtotal:</span>
+                        <span>BDT ${parseFloat(order.subtotal).toFixed(2)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Shipping:</span>
+                        <span>BDT ${parseFloat(order.shipping_cost).toFixed(2)}</span>
+                    </div>
+                    ${order.discount_amount > 0 ? `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: #10b981;">
+                        <span>Discount${order.discount_code ? ` (${order.discount_code})` : ''}:</span>
+                        <span>- BDT ${parseFloat(order.discount_amount).toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    <div style="display: flex; justify-content: space-between; font-weight: 600; font-size: 1.125rem; padding-top: 0.5rem; border-top: 1px solid #e5e7eb;">
+                        <span>Total:</span>
+                        <span>BDT ${parseFloat(order.total_amount).toFixed(2)}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+// 6. ADD NEW FUNCTION - Review Order (placeholder)
+function reviewOrder(orderId) {
+    showNotification('Review feature coming soon!', 'info');
+}
+
 // Load Stats
 async function loadStats() {
     try {
@@ -240,8 +434,31 @@ async function loadFavorites() {
 // Load Purchases
 async function loadPurchases() {
     try {
-        const response = await apiRequest('/dashboard/purchases');
-        purchasesData = response.data || [];
+        console.log('=== LOADING PURCHASES (ORDERS) ===');
+        
+        // Load orders instead of separate purchases
+        const response = await apiRequest('/orders');
+        const orders = response.data || [];
+        
+        console.log('Loaded orders/purchases:', orders.length);
+        
+        // Transform orders into purchases format
+        purchasesData = orders.map(order => ({
+            id: order.id,
+            order_number: order.order_number,
+            product: {
+                id: order.product_id,
+                name: order.product_name,
+                image_url: order.product_image
+            },
+            price: order.total_amount,
+            created_at: order.created_at,
+            status: order.status,
+            // Include all order details for reference
+            order_details: order
+        }));
+        
+        console.log('Transformed purchases data:', purchasesData.length);
     } catch (error) {
         console.error('Error loading purchases:', error);
         purchasesData = [];
@@ -366,6 +583,107 @@ function renderFavorites() {
         </div>
     `).join('');
 }
+function viewPurchaseDetails(purchaseId) {
+    const purchase = purchasesData.find(p => p.id === purchaseId);
+    if (!purchase || !purchase.order_details) return;
+    
+    const order = purchase.order_details;
+    const canCancel = ['pending', 'confirmed'].includes(order.status);
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Order Details - #${order.order_number}</h2>
+                <button class="modal-close" onclick="this.closest('.modal').remove()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div style="padding: 1.5rem;">
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 0.875rem; font-weight: 600; color: #6b7280; margin-bottom: 0.5rem;">PRODUCT</h3>
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <img src="${order.product_image}" alt="${order.product_name}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 0.5rem;">
+                        <div>
+                            <h4 style="font-weight: 600; margin-bottom: 0.25rem;">${order.product_name}</h4>
+                            <p style="color: #6b7280;">BDT ${parseFloat(order.product_price).toFixed(2)}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 0.875rem; font-weight: 600; color: #6b7280; margin-bottom: 0.5rem;">SHIPPING ADDRESS</h3>
+                    <p>${order.customer_first_name} ${order.customer_last_name}</p>
+                    <p>${order.shipping_address}${order.shipping_apartment ? ', ' + order.shipping_apartment : ''}</p>
+                    <p>${order.shipping_city}, ${order.shipping_postal_code}</p>
+                    <p>${order.shipping_phone}</p>
+                </div>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 0.875rem; font-weight: 600; color: #6b7280; margin-bottom: 0.5rem;">PAYMENT</h3>
+                    <p>Method: ${order.payment_method.toUpperCase()}</p>
+                    <p>Status: ${order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1)}</p>
+                </div>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 0.875rem; font-weight: 600; color: #6b7280; margin-bottom: 0.5rem;">ORDER STATUS</h3>
+                    <p style="text-transform: capitalize; font-weight: 600; color: ${order.status === 'cancelled' ? '#991b1b' : '#10b981'};">
+                        ${order.status}
+                    </p>
+                    ${order.status === 'cancelled' ? `
+                        <p style="font-size: 0.875rem; color: #6b7280; margin-top: 0.5rem;">
+                            This order has been cancelled. Refund will be processed within 3-5 business days.
+                        </p>
+                    ` : ''}
+                </div>
+                
+                <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Subtotal:</span>
+                        <span>BDT ${parseFloat(order.subtotal).toFixed(2)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Shipping:</span>
+                        <span>BDT ${parseFloat(order.shipping_cost).toFixed(2)}</span>
+                    </div>
+                    ${order.discount_amount > 0 ? `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: #10b981;">
+                        <span>Discount${order.discount_code ? ` (${order.discount_code})` : ''}:</span>
+                        <span>- BDT ${parseFloat(order.discount_amount).toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    <div style="display: flex; justify-content: space-between; font-weight: 600; font-size: 1.125rem; padding-top: 0.5rem; border-top: 1px solid #e5e7eb;">
+                        <span>Total:</span>
+                        <span>BDT ${parseFloat(order.total_amount).toFixed(2)}</span>
+                    </div>
+                </div>
+                
+                ${canCancel ? `
+                <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
+                    <button class="btn-secondary" onclick="cancelOrderFromModal('${order.id}')" style="
+                        width: 100%;
+                        background: #fee2e2;
+                        color: #991b1b;
+                        border: 1px solid #fecaca;
+                    ">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        Cancel This Order
+                    </button>
+                </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
 
 // Render Purchases
 function renderPurchases() {
@@ -383,38 +701,87 @@ function renderPurchases() {
         return;
     }
     
-    list.innerHTML = purchasesData.map(item => `
-        <div class="purchase-card">
-            <img src="${item.product?.image_url || 'https://via.placeholder.com/400'}" alt="${item.product?.name}" class="purchase-image">
-            <div class="purchase-info">
-                <div class="purchase-header">
-                    <div class="purchase-name">${item.product?.name || 'Item'}</div>
-                    <div class="purchase-price">BDT ${parseFloat(item.price).toFixed(2)}</div>
-                </div>
-                <div class="purchase-details">
-                    <div class="purchase-date">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                            <line x1="16" y1="2" x2="16" y2="6"></line>
-                            <line x1="8" y1="2" x2="8" y2="6"></line>
-                            <line x1="3" y1="10" x2="21" y2="10"></line>
-                        </svg>
-                        ${new Date(item.created_at).toLocaleDateString()}
+    list.innerHTML = purchasesData.map(item => {
+        const statusColors = {
+            'pending': 'background: #fef3c7; color: #92400e;',
+            'confirmed': 'background: #dbeafe; color: #1e40af;',
+            'processing': 'background: #e0e7ff; color: #3730a3;',
+            'shipped': 'background: #ddd6fe; color: #5b21b6;',
+            'delivered': 'background: #d1fae5; color: #065f46;',
+            'cancelled': 'background: #fee2e2; color: #991b1b;'
+        };
+        
+        // Check if order can be cancelled (only pending or confirmed)
+        const canCancel = ['pending', 'confirmed'].includes(item.status);
+        
+        return `
+            <div class="purchase-card" data-order-id="${item.id}">
+                <img src="${item.product?.image_url || 'https://via.placeholder.com/400'}" 
+                     alt="${item.product?.name}" 
+                     class="purchase-image">
+                <div class="purchase-info">
+                    <div class="purchase-header">
+                        <div>
+                            <div class="purchase-name">${item.product?.name || 'Item'}</div>
+                            <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">
+                                Order #${item.order_number}
+                            </div>
+                        </div>
+                        <div class="purchase-price">BDT ${parseFloat(item.price).toFixed(2)}</div>
                     </div>
-                    <div class="purchase-seller">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="12" cy="7" r="4"></circle>
-                        </svg>
-                        Seller: ${item.seller?.full_name || item.seller?.username || 'Unknown'}
+                    <div class="purchase-details">
+                        <div class="purchase-date">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                            ${new Date(item.created_at).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                            })}
+                        </div>
+                        <div class="purchase-date">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 11l3 3L22 4"></path>
+                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                            </svg>
+                            Payment: ${item.order_details?.payment_method?.toUpperCase() || 'N/A'}
+                        </div>
                     </div>
-                </div>
-                <div style="margin-top: 0.5rem;">
-                    <span class="badge badge-verified">${item.status}</span>
+                    <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem; align-items: center;">
+                        <span class="badge badge-verified" style="${statusColors[item.status] || statusColors['pending']}">
+                            ${item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                        </span>
+                        <div style="margin-left: auto; display: flex; gap: 0.5rem;">
+                            <button class="btn-icon btn-view" onclick="viewPurchaseDetails('${item.id}')">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                                View
+                            </button>
+                            ${canCancel ? `
+                            <button class="btn-icon btn-cancel" onclick="cancelOrder('${item.id}')" style="
+                                background: #fee2e2;
+                                color: #991b1b;
+                                border: 1px solid #fecaca;
+                            ">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                                Cancel
+                            </button>
+                            ` : ''}
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 // Render Settings
@@ -430,6 +797,61 @@ function renderSettings() {
     if (priceDropToggle) priceDropToggle.checked = userSettings.price_drop_alerts === true;
 }
 
+async function cancelOrder(orderId) {
+    const order = purchasesData.find(p => p.id === orderId);
+    if (!order) return;
+    
+    // Confirmation dialog
+    const confirmed = confirm(
+        `Are you sure you want to cancel this order?\n\n` +
+        `Order: #${order.order_number}\n` +
+        `Product: ${order.product?.name}\n` +
+        `Amount: BDT ${parseFloat(order.price).toFixed(2)}\n\n` +
+        `This action cannot be undone.`
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+        showLoading(true);
+        
+        console.log('=== CANCELLING ORDER ===');
+        console.log('Order ID:', orderId);
+        
+        // Call API to update order status
+        const response = await apiRequest(`/orders/${orderId}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                status: 'cancelled',
+                payment_status: 'refunded' // Optional: update payment status
+            })
+        });
+        
+        if (response.success) {
+            showNotification('Order cancelled successfully', 'success');
+            
+            // Update local data
+            const orderIndex = purchasesData.findIndex(p => p.id === orderId);
+            if (orderIndex !== -1) {
+                purchasesData[orderIndex].status = 'cancelled';
+                purchasesData[orderIndex].order_details.status = 'cancelled';
+                purchasesData[orderIndex].order_details.payment_status = 'refunded';
+            }
+            
+            // Re-render purchases
+            renderPurchases();
+            
+            // Optionally reload all purchases to ensure sync
+            // await loadPurchases();
+            // renderPurchases();
+        }
+    } catch (error) {
+        console.error('Cancel order error:', error);
+        showNotification(error.message || 'Failed to cancel order', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
 // Modal Controllers
 // Modal Controllers
 
@@ -591,6 +1013,14 @@ function createSellModal() {
     document.getElementById('sellFormDash').onsubmit = handleSellFormSubmit;
     setupAutoConditionSelection();
     
+}
+async function cancelOrderFromModal(orderId) {
+    // Close the modal first
+    const modal = document.querySelector('.modal.active');
+    if (modal) modal.remove();
+    
+    // Then cancel the order
+    await cancelOrder(orderId);
 }
 
 function setupAutoConditionSelection() {

@@ -1,13 +1,15 @@
-// src/server.js
+// src/server.js - UPDATED WITH ADMIN ROUTES
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
-const dashboardRoutes = require('./routes/dashboard'); // ADD THIS LINE
+const dashboardRoutes = require('./routes/dashboard');
 const productRoutes = require('./routes/products');
 const messageRoutes = require('./routes/messages');
 const notificationRoutes = require('./routes/notifications');
+const orderRoutes = require('./routes/orders');
+const adminRoutes = require('./routes/admin'); // ADD THIS LINE
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,10 +32,12 @@ app.use((req, res, next) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/dashboard', dashboardRoutes); // ADD THIS LINE
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/admin', adminRoutes); // ADD THIS LINE
 
 // Health check
 app.get('/health', (req, res) => {
@@ -69,6 +73,7 @@ app.listen(PORT, () => {
     console.log(`📍 Health check: http://localhost:${PORT}/health`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`✅ Ready to accept requests!`);
+    console.log(`🔐 Admin routes available at /api/admin`);
 });
 
 module.exports = app;
