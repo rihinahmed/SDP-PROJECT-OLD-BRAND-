@@ -1,4 +1,4 @@
-// /ReVogue/js/shop.js - Dynamic with Supabase
+// /ReVogue/js/shop.js - UPDATED WITH AUTH CHECKS
 const API_URL = 'http://localhost:3000/api';
 
 // Auth Service
@@ -33,7 +33,7 @@ function showNotification(message, type = 'info') {
         position: fixed;
         top: 6rem;
         right: 1rem;
-        background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : 'linear-gradient(to right, var(--purple-500), var(--pink-500))'};
+        background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : 'linear-gradient(to right, #a855f7, #ec4899)'};
         color: white;
         padding: 1rem 1.5rem;
         border-radius: 0.75rem;
@@ -50,9 +50,51 @@ function showNotification(message, type = 'info') {
     }, 2000);
 }
 
+// Show loading indicator
+function showLoading(show) {
+    let loader = document.getElementById('loadingIndicator');
+    
+    if (show) {
+        if (!loader) {
+            loader = document.createElement('div');
+            loader.id = 'loadingIndicator';
+            loader.innerHTML = `
+                <div style="
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: white;
+                    padding: 2rem;
+                    border-radius: 1rem;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+                    z-index: 9999;
+                    text-align: center;
+                ">
+                    <div style="
+                        width: 50px;
+                        height: 50px;
+                        border: 4px solid #f3f4f6;
+                        border-top-color: #a855f7;
+                        border-radius: 50%;
+                        animation: spin 1s linear infinite;
+                        margin: 0 auto 1rem;
+                    "></div>
+                    <p style="color: #6b7280; margin: 0;">Loading products...</p>
+                </div>
+            `;
+            document.body.appendChild(loader);
+        }
+    } else {
+        if (loader) {
+            loader.remove();
+        }
+    }
+}
+
 // Products State
 let allProducts = [];
-let userFavorites = new Set();
+let userFavorites = new Map();
 
 // Filters State
 let filters = {
@@ -97,46 +139,84 @@ const colorOptions = [
 // Load Products from API
 async function loadProducts() {
     try {
-        const params = new URLSearchParams({
-            category: filters.category !== 'All' ? filters.category : '',
-            minPrice: filters.minPrice,
-            maxPrice: filters.maxPrice,
-            sortBy: filters.sortBy,
-            search: filters.searchQuery
-        });
+        showLoading(true);
+        
+        console.log('=== LOADING PRODUCTS ===');
+        console.log('Filters:', filters);
+        
+        const params = new URLSearchParams();
+        
+        if (filters.category !== 'All') {
+            params.append('category', filters.category);
+        }
+        
+        if (filters.maxPrice) {
+            params.append('max_price', filters.maxPrice);
+        }
+        
+        if (filters.sortBy) {
+            params.append('sort', filters.sortBy);
+        }
+        
+        if (filters.searchQuery) {
+            params.append('search', filters.searchQuery);
+        }
 
-        // Add condition filter
         if (filters.conditions.length > 0) {
             params.append('condition', filters.conditions[0]);
         }
 
         const response = await fetch(`${API_URL}/products?${params}`);
-        if (!response.ok) throw new Error('Failed to load products');
+        
+        if (!response.ok) {
+            throw new Error('Failed to load products');
+        }
 
-        allProducts = await response.json();
+        const data = await response.json();
+        console.log('API Response:', data);
+        
+        allProducts = data.data || data || [];
+        
+        console.log('Loaded products:', allProducts.length);
 
-        // Load favorites if authenticated
         if (AuthService.isAuthenticated()) {
             await loadFavorites();
         }
 
         filterAndRenderProducts();
+        showLoading(false);
     } catch (error) {
         console.error('Error loading products:', error);
         showNotification('Failed to load products', 'error');
+        showLoading(false);
     }
 }
 
 // Load User Favorites
 async function loadFavorites() {
     try {
-        const response = await fetch(`${API_URL}/products/favorites`, {
+        console.log('=== LOADING FAVORITES ===');
+        
+        const response = await fetch(`${API_URL}/dashboard/favorites`, {
             headers: AuthService.getHeaders()
         });
 
         if (response.ok) {
-            const favorites = await response.json();
-            userFavorites = new Set(favorites.map(fav => fav.product_id));
+            const data = await response.json();
+            const favorites = data.data || data || [];
+            
+            console.log('Loaded favorites:', favorites.length);
+            
+            userFavorites.clear();
+            
+            favorites.forEach(fav => {
+                const productId = fav.products?.id || fav.product_id;
+                if (productId) {
+                    userFavorites.set(productId, fav.id);
+                }
+            });
+            
+            console.log('User favorites map:', userFavorites);
         }
     } catch (error) {
         console.error('Error loading favorites:', error);
@@ -148,9 +228,13 @@ function isFavorited(productId) {
     return userFavorites.has(productId);
 }
 
+// Get favorite ID for a product
+function getFavoriteId(productId) {
+    return userFavorites.get(productId);
+}
+
 // Initialize Filters
 function initFilters() {
-    // Category Filters
     const categoryContainer = document.getElementById('categoryFilters');
     categoryContainer.innerHTML = categories.map(cat => `
         <button class="category-filter ${cat === 'All' ? 'active' : ''}" data-category="${cat}">
@@ -168,7 +252,6 @@ function initFilters() {
         });
     });
     
-    // Condition Filters
     const conditionContainer = document.getElementById('conditionFilters');
     conditionContainer.innerHTML = conditions.map(condition => `
         <div class="checkbox-filter">
@@ -185,7 +268,6 @@ function initFilters() {
         });
     });
     
-    // Size Filters
     const sizeContainer = document.getElementById('sizeFilters');
     sizeContainer.innerHTML = sizes.map(size => `
         <button class="size-filter" data-size="${size}">${size}</button>
@@ -200,7 +282,6 @@ function initFilters() {
         });
     });
     
-    // Color Filters
     const colorContainer = document.getElementById('colorFilters');
     colorContainer.innerHTML = colorOptions.map(color => `
         <button class="color-filter" data-color="${color.hex}" style="background-color: ${color.hex}; ${color.name === 'White' ? 'border-color: var(--gray-400);' : ''}" title="${color.name}"></button>
@@ -245,7 +326,6 @@ maxPriceInput.addEventListener('change', (e) => {
     loadProducts();
 });
 
-// Debounce for price slider
 let priceDebounceTimer;
 function debounceLoadProducts() {
     clearTimeout(priceDebounceTimer);
@@ -254,13 +334,11 @@ function debounceLoadProducts() {
     }, 500);
 }
 
-// Sort By
 document.getElementById('sortBy').addEventListener('change', (e) => {
     filters.sortBy = e.target.value;
     loadProducts();
 });
 
-// Search
 document.getElementById('searchInput').addEventListener('input', (e) => {
     filters.searchQuery = e.target.value;
     displayedProducts = 12;
@@ -270,7 +348,6 @@ document.getElementById('searchInput').addEventListener('input', (e) => {
     }, 500);
 });
 
-// View Toggle
 document.querySelectorAll('.view-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
@@ -280,7 +357,6 @@ document.querySelectorAll('.view-btn').forEach(btn => {
     });
 });
 
-// Clear Filters
 document.getElementById('clearFilters').addEventListener('click', () => {
     filters = {
         category: 'All',
@@ -311,30 +387,21 @@ document.getElementById('clearFilters').addEventListener('click', () => {
     loadProducts();
 });
 
-// Get Filtered Products (client-side filters for size and color)
 function getFilteredProducts() {
     let filtered = [...allProducts];
     
-    // Size filter (client-side)
     if (filters.sizes.length > 0) {
-        filtered = filtered.filter(p => filters.sizes.includes(p.size));
+        filtered = filtered.filter(p => p.size && filters.sizes.includes(p.size));
     }
-    
-    // Color filter (client-side) - would need color field in database
-    // if (filters.colors.length > 0) {
-    //     filtered = filtered.filter(p => filters.colors.includes(p.color));
-    // }
     
     return filtered;
 }
 
-// Filter and Render Products
 function filterAndRenderProducts() {
     const filtered = getFilteredProducts();
     renderProducts(filtered);
 }
 
-// Render Products
 function renderProducts(products) {
     const container = document.getElementById('productsContainer');
     const noProducts = document.getElementById('noProducts');
@@ -355,12 +422,11 @@ function renderProducts(products) {
     noProducts.style.display = 'none';
     productCount.textContent = `Showing ${productsToShow.length} of ${products.length} products`;
     
-    // Update view class
     container.className = currentView === 'list' ? 'products-grid list-view' : 'products-grid';
     
     container.innerHTML = productsToShow.map(product => {
         const liked = isFavorited(product.id);
-        const sellerName = product.profiles?.username || 'Anonymous';
+        const sellerName = product.profiles?.username || product.profiles?.full_name || 'Anonymous';
         
         return `
             <div class="product-card" data-id="${product.id}">
@@ -390,7 +456,6 @@ function renderProducts(products) {
         `;
     }).join('');
     
-    // Show/hide load more button
     if (displayedProducts < products.length) {
         loadMoreBtn.parentElement.style.display = 'block';
     } else {
@@ -402,16 +467,29 @@ function renderProducts(products) {
 async function toggleLike(event, productId) {
     event.stopPropagation();
     
+    // CHECK AUTH BEFORE ALLOWING FAVORITE
     if (!AuthService.isAuthenticated()) {
         showNotification('Please login to add favorites', 'error');
+        setTimeout(() => {
+            window.location.href = '/ReVogue/Pages/login.html';
+        }, 1500);
         return;
     }
     
     try {
-        const isLiked = userFavorites.has(productId);
+        const isLiked = isFavorited(productId);
         
         if (isLiked) {
-            const response = await fetch(`${API_URL}/products/${productId}/favorite`, {
+            const favoriteId = getFavoriteId(productId);
+            console.log('Removing favorite:', { productId, favoriteId });
+            
+            if (!favoriteId) {
+                console.error('Favorite ID not found for product:', productId);
+                showNotification('Error removing favorite', 'error');
+                return;
+            }
+            
+            const response = await fetch(`${API_URL}/dashboard/favorites/${favoriteId}`, {
                 method: 'DELETE',
                 headers: AuthService.getHeaders()
             });
@@ -419,20 +497,29 @@ async function toggleLike(event, productId) {
             if (response.ok) {
                 userFavorites.delete(productId);
                 showNotification('Removed from favorites', 'success');
+            } else {
+                throw new Error('Failed to remove favorite');
             }
         } else {
-            const response = await fetch(`${API_URL}/products/${productId}/favorite`, {
+            console.log('Adding favorite:', productId);
+            
+            const response = await fetch(`${API_URL}/dashboard/favorites`, {
                 method: 'POST',
-                headers: AuthService.getHeaders()
+                headers: AuthService.getHeaders(),
+                body: JSON.stringify({ product_id: productId })
             });
             
             if (response.ok) {
-                userFavorites.add(productId);
+                const data = await response.json();
+                if (data.data && data.data.id) {
+                    userFavorites.set(productId, data.data.id);
+                }
                 showNotification('Added to favorites', 'success');
+            } else {
+                throw new Error('Failed to add favorite');
             }
         }
         
-        // Re-render to update UI
         renderProducts(getFilteredProducts());
     } catch (error) {
         console.error('Toggle like error:', error);
@@ -445,11 +532,18 @@ async function showQuickView(event, productId) {
     event.stopPropagation();
     
     try {
-        const response = await fetch(`${API_URL}/products/${productId}`);
-        if (!response.ok) throw new Error('Product not found');
+        showLoading(true);
         
-        const product = await response.json();
-        const sellerName = product.profiles?.username || 'Anonymous';
+        const response = await fetch(`${API_URL}/products/${productId}`);
+        
+        if (!response.ok) {
+            throw new Error('Product not found');
+        }
+        
+        const data = await response.json();
+        const product = data.data || data;
+        
+        const sellerName = product.profiles?.username || product.profiles?.full_name || 'Anonymous';
         
         const modal = document.getElementById('quickViewModal');
         const content = document.getElementById('quickViewContent');
@@ -485,15 +579,27 @@ async function showQuickView(event, productId) {
         `;
         
         modal.classList.add('active');
+        showLoading(false);
     } catch (error) {
         console.error('Show quick view error:', error);
         showNotification('Failed to load product details', 'error');
+        showLoading(false);
     }
 }
 
-// Add to Cart
+// Add to Cart - CHECK AUTH
 function addToCart(event, productId) {
     event.stopPropagation();
+    
+    // CHECK AUTH BEFORE ALLOWING ADD TO CART
+    if (!AuthService.isAuthenticated()) {
+        showNotification('Please login to add items to cart', 'error');
+        setTimeout(() => {
+            window.location.href = '/ReVogue/Pages/login.html';
+        }, 1500);
+        return;
+    }
+    
     const product = allProducts.find(p => p.id === productId);
     if (!product) return;
     
@@ -509,6 +615,15 @@ function addToCart(event, productId) {
 }
 
 function addToCartFromQuickView(productId) {
+    // CHECK AUTH BEFORE ALLOWING ADD TO CART
+    if (!AuthService.isAuthenticated()) {
+        showNotification('Please login to add items to cart', 'error');
+        setTimeout(() => {
+            window.location.href = '/ReVogue/Pages/login.html';
+        }, 1500);
+        return;
+    }
+    
     const product = allProducts.find(p => p.id === productId);
     if (!product) return;
     
@@ -571,24 +686,15 @@ function removeFromCart(productId) {
 const style = document.createElement('style');
 style.textContent = `
     @keyframes slideIn {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
     }
     @keyframes slideOut {
-        from {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        to {
-            transform: translateX(100%);
-            opacity: 0;
-        }
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
     }
 `;
 document.head.appendChild(style);
@@ -626,17 +732,25 @@ window.addEventListener('click', (e) => {
     }
 });
 
-// Checkout
+// Checkout - CHECK AUTH
 document.querySelector('.btn-checkout').addEventListener('click', () => {
+    // CHECK AUTH BEFORE ALLOWING CHECKOUT
     if (!AuthService.isAuthenticated()) {
         showNotification('Please login to checkout', 'error');
         setTimeout(() => {
-            window.location.href = 'login.html';
+            window.location.href = '/ReVogue/Pages/login.html';
         }, 1500);
         return;
     }
     
-    showNotification('Checkout feature coming soon!', 'info');
+    // CHECK IF CART IS EMPTY
+    if (cart.length === 0) {
+        showNotification('Your cart is empty', 'error');
+        return;
+    }
+    
+    // Redirect to checkout page
+    window.location.href = '/ReVogue/Pages/checkout.html';
 });
 
 // Initialize on page load
@@ -645,7 +759,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loadProducts();
     updateCart();
     
-    // Update UI based on auth state
     if (AuthService.isAuthenticated()) {
         console.log('User logged in');
     }
