@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Portal - The Renewed Studio</title>
+    <link rel="stylesheet" href="/ReVogue/css/admin-login.css">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    
+    <!-- Background Animations -->
+    <div class="admin-bg">
+        <canvas id="particleCanvas"></canvas>
+    </div>
+    <canvas id="cursorTrail"></canvas>
+
+    <main class="login-container">
+        <div class="glass-card" id="glassCard">
+            <!-- Top Border Gradient -->
+            <div class="top-gradient"></div>
+
+            <!-- Animated Logo -->
+            <div class="logo-wrapper">
+                <div class="logo-circle">
+                    <img src="/ReVogue/assets/images/logo-removebg-preview.png" alt="The Renewed Studio">
+                    <div class="logo-spinner"></div>
+                </div>
+            </div>
+
+            <!-- Brand Header -->
+            <div class="brand-header">
+                <h1>The Renewed Studio <span class="highlight">Admin</span></h1>
+                <p>Secure Access Portal</p>
+            </div>
+
+            <!-- Error Message -->
+            <div id="errorMessage" class="error-banner">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <span id="errorText">Invalid credentials. Please try again.</span>
+            </div>
+
+            <!-- Login Form -->
+            <form id="adminForm">
+                <div class="input-group">
+                    <i class="fa-solid fa-shield input-icon"></i>
+                    <input type="email" id="email" required autocomplete="email">
+                    <label for="email">Admin Email</label>
+                    <div class="input-line"></div>
+                </div>
+
+                <div class="input-group">
+                    <i class="fa-solid fa-shield input-icon"></i>
+                    <input type="password" id="password" required autocomplete="current-password">
+                    <label for="password">Password</label>
+                    <button type="button" class="toggle-password" id="togglePassword">
+                        <i class="fa-solid fa-eye"></i>
+                    </button>
+                    <div class="input-line"></div>
+                </div>
+
+                <div class="actions">
+                    <button type="submit" class="btn-login" id="loginBtn">
+                        <span class="btn-text">Access Dashboard</span>
+                        <div class="loader"></div>
+                        <div class="ripple-container"></div>
+                    </button>
+                </div>
+            </form>
+
+            <div class="footer-links">
+                <a href="#" class="forgot-pass">Forgot Password?</a>
+                <span class="separator">•</span>
+                <a href="index.html" class="back-home">Back to Site</a>
+            </div>
+
+            <!-- Card Glow Effect -->
+            <div class="card-glow"></div>
+        </div>
+    </main>
+
+    <script src="/ReVogue/js/admin-login.js"></script>
+</body>
+</html>

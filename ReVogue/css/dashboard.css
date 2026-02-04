@@ -1204,6 +1204,7 @@ body {
     cursor: pointer;
     transition: all 0.2s;
     font-weight: 500;
+    justify-content: center;
 }
 
 .btn-primary:hover {
@@ -1254,7 +1255,7 @@ body {
     font-weight: 500;
 }
 
-.status-active {
+.status-available {
     background: var(--green-100);
     color: var(--green-700);
 }
@@ -1727,4 +1728,344 @@ body {
     .form-row {
         grid-template-columns: 1fr;
     }
+}
+
+/* =========================================
+   SELL MODAL SPECIFIC DESIGN
+   ========================================= */
+
+/* Modal Container width and responsive layout */
+.modal-sell-item {
+    max-width: 900px;
+    width: 95%;
+    padding: 0;
+    overflow: hidden;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.sell-form-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Left Column: Image Upload */
+.sell-column-left {
+    background: var(--purple-50);
+    padding: 2rem;
+    border-right: 1px solid var(--purple-100);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Right Column: Form Fields */
+.sell-column-right {
+    padding: 2rem;
+    overflow-y: auto;
+    max-height: calc(90vh - 80px); /* Adjust based on header height */
+}
+
+/* Fancy Image Upload Area */
+.image-upload-large {
+    flex: 1;
+    background: white;
+    border: 2px dashed var(--purple-300);
+    border-radius: 1rem;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.image-upload-large:hover {
+    border-color: var(--purple-500);
+    background: var(--purple-50);
+}
+
+.image-upload-large.has-image {
+    border-style: solid;
+    border-color: var(--purple-200);
+    padding: 0;
+}
+
+.upload-prompt-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.5rem;
+}
+
+.upload-icon-circle {
+    width: 64px;
+    height: 64px;
+    background: var(--purple-100);
+    color: var(--purple-600);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+    transition: transform 0.3s ease;
+}
+
+.image-upload-large:hover .upload-icon-circle {
+    transform: scale(1.1) rotate(5deg);
+    background: var(--purple-200);
+}
+
+.upload-prompt-content h4 {
+    color: var(--gray-800);
+    font-weight: 600;
+}
+
+.upload-prompt-content p {
+    color: var(--gray-500);
+    font-size: 0.9rem;
+}
+
+.file-support-text {
+    font-size: 0.75rem;
+    color: var(--gray-400);
+    margin-top: 0.5rem;
+}
+
+/* Image Preview */
+.image-preview-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    background: #000;
+}
+
+.image-preview-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.remove-image-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--red-500);
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: all 0.2s;
+}
+
+.remove-image-btn:hover {
+    transform: scale(1.1);
+    background: white;
+}
+
+/* Styled Inputs */
+.input-styled {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 0.75rem;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    background: var(--gray-50);
+}
+
+.input-styled:focus {
+    background: white;
+    border-color: var(--purple-500);
+    box-shadow: 0 0 0 4px var(--purple-100);
+    outline: none;
+}
+
+/* Input with Icon (Currency) */
+.input-with-icon {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-icon {
+    position: absolute;
+    left: 1rem;
+    color: var(--gray-500);
+    font-weight: 600;
+    z-index: 10;
+}
+
+.input-with-icon input {
+    padding-left: 2.5rem;
+}
+
+/* Select Styling */
+.select-wrapper {
+    position: relative;
+}
+
+.select-wrapper::after {
+    content: '';
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0; 
+    height: 0; 
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid var(--gray-500);
+    pointer-events: none;
+}
+
+.select-wrapper select {
+    appearance: none;
+    cursor: pointer;
+}
+
+/* Form Actions */
+.form-actions-sticky {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--gray-100);
+}
+
+.form-actions-sticky button {
+    flex: 1;
+    padding: 0.875rem;
+    font-weight: 600;
+}
+
+/* Responsive Layout */
+@media (max-width: 768px) {
+    .sell-form-layout {
+        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .sell-column-left {
+        padding: 1.5rem;
+        min-height: 250px;
+        border-right: none;
+        border-bottom: 1px solid var(--purple-100);
+    }
+
+    .image-upload-large {
+        min-height: 200px;
+    }
+
+    .modal-sell-item {
+        height: 90vh; /* Force height on mobile */
+    }
+}
+.order-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.order-number {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0 0 0.25rem 0;
+}
+
+.order-date {
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+.order-status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.order-product {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.order-product-image {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 0.5rem;
+}
+
+.order-product-name {
+    font-weight: 600;
+    margin: 0 0 0.25rem 0;
+}
+
+.order-product-price {
+    color: #6b7280;
+    margin: 0;
+}
+
+.order-details {
+    background: #f9fafb;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.order-detail-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.order-detail-row.order-total {
+    font-weight: 600;
+    font-size: 1rem;
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.order-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-view, .btn-review {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
 }

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - The Renewed Studio</title>
+    <link rel="stylesheet" href="/ReVogue/css/checkout.css">
+</head>
+<body>
+    <!-- Particle Background -->
+    <canvas id="particleCanvas"></canvas>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-container">
+            <div class="header-left">
+                <div class="logo-icon">
+                    <a href="index.html">
+                        <img src="/ReVogue/assets/images/logo-removebg-preview.png" alt="Logo" height="40">
+                    </a>
+                </div>
+            </div>
+            
+            <div class="checkout-steps">
+                <div class="step completed">
+                    <span class="step-num">1</span>
+                    <span class="step-text">Cart</span>
+                </div>
+                <div class="step-line active"></div>
+                <div class="step active">
+                    <span class="step-num">2</span>
+                    <span class="step-text">Checkout</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step">
+                    <span class="step-num">3</span>
+                    <span class="step-text">Done</span>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <a href="index.html" class="text-link">Continue Shopping</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="checkout-container">
+        <form id="checkoutForm" class="checkout-layout">
+            
+            <!-- Left Column: Information & Payment -->
+            <div class="checkout-main">
+                
+                <!-- Section 1: Contact Info -->
+                <section class="checkout-section">
+                    <div class="section-header">
+                        <h2 class="section-title">Contact Information</h2>
+                        <span class="login-prompt">Already have an account? <a href="login.html">Log in</a></span>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email Address</label>
+                        <input type="email" id="email" class="input-styled" placeholder="you@example.com" required>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="newsletter">
+                        <label for="newsletter">Email me with news and offers</label>
+                    </div>
+                </section>
+
+                <!-- Section 2: Shipping Address -->
+                <section class="checkout-section">
+                    <h2 class="section-title">Shipping Address</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">First Name</label>
+                            <input type="text" id="firstName" class="input-styled" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" id="lastName" class="input-styled" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Address</label>
+                        <input type="text" id="address" class="input-styled" placeholder="House no, Street, Area" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Apartment, suite, etc. (optional)</label>
+                        <input type="text" id="apartment" class="input-styled">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">City</label>
+                            <input type="text" id="city" class="input-styled" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Postal Code</label>
+                            <input type="text" id="postalCode" class="input-styled" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Phone Number</label>
+                        <div class="input-with-icon">
+                            <span class="input-text-icon">+880</span>
+                            <input type="tel" id="phone" class="input-styled" style="padding-left: 3.5rem;" required>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 3: Payment Method -->
+                <section class="checkout-section">
+                    <h2 class="section-title">Payment Method</h2>
+                    <p class="section-desc">All transactions are secure and encrypted.</p>
+                    
+                    <div class="payment-methods">
+                        <!-- Option 1: Card -->
+                        <div class="payment-option">
+                            <input type="radio" name="payment" id="payCard" value="card" checked>
+                            <label for="payCard" class="payment-header">
+                                <span>Credit/Debit Card</span>
+                                <div class="payment-icons">
+                                    <img src="https://img.icons8.com/color/48/visa.png" alt="Visa" height="24">
+                                    <img src="https://img.icons8.com/color/48/mastercard.png" alt="Mastercard" height="24">
+                                </div>
+                            </label>
+                            <div class="payment-content">
+                                <div class="form-group">
+                                    <input type="text" class="input-styled" placeholder="Card Number" maxlength="19">
+                                </div>
+                                <div class="form-row">
+                                    <input type="text" class="input-styled" placeholder="MM / YY" maxlength="5">
+                                    <input type="text" class="input-styled" placeholder="CVC" maxlength="3">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Option 2: Mobile Banking -->
+                        <div class="payment-option">
+                            <input type="radio" name="payment" id="payMobile" value="mobile">
+                            <label for="payMobile" class="payment-header">
+                                <span>Mobile Banking</span>
+                                <div class="payment-icons">
+                                    <span style="font-weight: 700; color: #e2136e;">bkash</span>
+                                    <span style="font-weight: 700; color: #f6921e;">Nagad</span>
+                                </div>
+                            </label>
+                            <div class="payment-content">
+                                <p style="font-size: 0.9rem; color: var(--gray-600); margin-bottom: 1rem;">
+                                    You will be redirected to the payment gateway to complete your purchase securely.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Option 3: COD -->
+                        <div class="payment-option">
+                            <input type="radio" name="payment" id="payCod" value="cod">
+                            <label for="payCod" class="payment-header">
+                                <span>Cash on Delivery</span>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-gray-500">
+                                    <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                                    <circle cx="12" cy="12" r="2"></circle>
+                                    <path d="M6 12h.01M18 12h.01"></path>
+                                </svg>
+                            </label>
+                            <div class="payment-content">
+                                <p style="font-size: 0.9rem; color: var(--gray-600);">
+                                    Pay with cash upon delivery. Additional verification may be required.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <button type="submit" class="btn-checkout-mobile">Pay BDT <span id="mobileTotalBtn">0.00</span></button>
+            </div>
+
+            <!-- Right Column: Order Summary (Sticky) -->
+            <aside class="checkout-sidebar">
+                <div class="order-summary-card">
+                    <h3 class="summary-title">Order Summary</h3>
+                    
+                    <!-- Product Preview -->
+                    <div class="product-preview">
+                        <div class="product-img-wrapper" id="productImgWrapper">
+                            <img src="" alt="Product" id="summaryImage">
+                            <div class="zoom-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                    <line x1="11" y1="8" x2="11" y2="14"></line>
+                                    <line x1="8" y1="11" x2="14" y2="11"></line>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="product-details">
+                            <h4 id="summaryName">Loading Product...</h4>
+                            <p class="detail-row">Condition: <span id="summaryCondition" class="badge-condition">-</span></p>
+                            <p class="detail-row">Size: <span id="summarySize">-</span></p>
+                            <p class="detail-price">BDT <span id="summaryPrice">0.00</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Promo Code -->
+                    <div class="promo-section">
+                        <div class="promo-input-group">
+                            <input type="text" id="promoCode" placeholder="Promo Code (e.g. REVOGUE10)">
+                            <button type="button" id="applyPromoBtn">Apply</button>
+                        </div>
+                        <p id="promoMessage" class="promo-message"></p>
+                    </div>
+
+                    <!-- Cost Breakdown -->
+                    <div class="cost-breakdown">
+                        <div class="cost-row">
+                            <span>Subtotal</span>
+                            <span>BDT <span id="costSubtotal">0.00</span></span>
+                        </div>
+                        <div class="cost-row">
+                            <span>Shipping</span>
+                            <span>BDT <span id="costShipping">120.00</span></span>
+                        </div>
+                        <div class="cost-row discount-row" id="discountRow" style="display: none;">
+                            <span>Discount <span id="discountCodeName"></span></span>
+                            <span>- BDT <span id="costDiscount">0.00</span></span>
+                        </div>
+                        <div class="divider"></div>
+                        <div class="cost-row total">
+                            <span>Total</span>
+                            <span>BDT <span id="costTotal">0.00</span></span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-checkout-desktop">
+                        <span id="btnText">Pay Now</span>
+                        <div class="spinner" id="btnSpinner"></div>
+                    </button>
+                    
+                    <div class="security-badges">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                        Secure Encrypted Payment
+                    </div>
+                </div>
+            </aside>
+        </form>
+    </main>
+
+    <!-- Image Lightbox Modal -->
+    <div id="imageLightbox" class="lightbox">
+        <button class="lightbox-close">&times;</button>
+        <div class="lightbox-content">
+            <img id="lightboxImg" src="" alt="Full view">
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="modal">
+        <div class="modal-content success-content">
+            <div class="success-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            </div>
+            <h2>Order Placed Successfully!</h2>
+            <p>Thank you for giving this item a second life. Your order #RV-8823 is being processed.</p>
+            <div class="success-actions">
+                <a href="dashboard.html" class="btn-primary" style="width: 100%; justify-content: center; text-decoration: none;">View Order in Dashboard</a>
+                <a href="index.html" class="btn-secondary" style="width: 100%; justify-content: center; text-decoration: none;">Continue Shopping</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/ReVogue/js/particles.js"></script>
+    <script src="/ReVogue/js/checkout.js"></script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-// src/config/supabase.js
+// src/config/supabase.js - CORRECT VERSION
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -12,10 +12,48 @@ if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
     process.exit(1);
 }
 
-// Client for regular operations (with RLS)
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Create client factory that sets JWT per request
+function getSupabaseClient(accessToken = null) {
+    if (accessToken) {
+        // For authenticated requests - use service key but set JWT
+        return createClient(supabaseUrl, supabaseServiceKey, {
+            global: {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`
+                }
+            },
+            auth: {
+                autoRefreshToken: false,
+                persistSession: false
+            }
+        });
+    }
+    
+    // For unauthenticated/public requests - use anon key
+    return createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    });
+}
 
-// Admin client for operations that bypass RLS
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+// Default client for public operations (uses anon key)
+const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+        autoRefreshToken: false,
+        persistSession: false
+    }
+});
 
-module.exports = { supabase, supabaseAdmin };
+// Admin client for operations that need to bypass RLS (uses service key)
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+        autoRefreshToken: false,
+        persistSession: false
+    }
+});
+
+console.log('✅ Supabase initialized');
+
+module.exports = { supabase, supabaseAdmin, getSupabaseClient };

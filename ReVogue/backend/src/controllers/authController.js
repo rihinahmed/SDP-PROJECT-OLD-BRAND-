@@ -1,94 +1,237 @@
-// src/controllers/authController.js
+// src/controllers/authController.js - COMPLETE VERSION (Users + Admin)
 const { supabase, supabaseAdmin } = require('../config/supabase');
+const jwt = require('jsonwebtoken');
 
 // Register new user
 const register = async (req, res) => {
     try {
         const { email, password, username, fullName } = req.body;
 
-        console.log('Registering user:', email);
+        console.log('=== REGISTRATION ATTEMPT ===');
+        console.log('Email:', email);
+        console.log('Username:', username);
 
-        // Create auth user
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        // Validation
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email and password are required'
+            });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                error: 'Password must be at least 6 characters'
+            });
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid email format'
+            });
+        }
+
+        console.log('Creating user in Supabase Auth...');
+        
+        const { data, error } = await supabaseAdmin.auth.admin.createUser({
             email,
             password,
+            email_confirm: true,
+            user_metadata: {
+                username: username || email.split('@')[0],
+                full_name: fullName || email.split('@')[0]
+            }
         });
 
-        if (authError) {
-            console.error('Auth error:', authError);
-            return res.status(400).json({ error: authError.message });
+        if (error) {
+            console.error('Supabase Auth error:', error);
+            
+            if (error.message.includes('already registered')) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'This email is already registered'
+                });
+            }
+            
+            return res.status(400).json({
+                success: false,
+                error: error.message || 'Registration failed'
+            });
         }
 
-        if (!authData.user) {
-            return res.status(400).json({ error: 'User creation failed' });
-        }
+        console.log('✅ User created in Auth:', data.user.id);
 
-        // Create profile
-        const { data: profileData, error: profileError } = await supabaseAdmin
-            .from('profiles')
-            .insert([
-                {
-                    id: authData.user.id,
-                    username,
-                    full_name: fullName,
+        // Manually create profile
+        console.log('Creating profile...');
+        
+        try {
+            const { data: profileData, error: profileError } = await supabaseAdmin
+                .from('profiles')
+                .insert({
+                    id: data.user.id,
+                    email: email,
+                    username: username || email.split('@')[0],
+                    full_name: fullName || email.split('@')[0],
+                    role: 'user',
+                    status: 'verified',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                })
+                .select()
+                .single();
+
+            if (profileError) {
+                console.error('Profile creation error:', profileError);
+                
+                // Check if profile exists
+                const { data: existingProfile } = await supabaseAdmin
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', data.user.id)
+                    .single();
+                
+                if (existingProfile) {
+                    console.log('✅ Profile already exists');
+                } else {
+                    console.warn('⚠️ User created but profile creation failed');
                 }
-            ])
-            .select()
-            .single();
-
-        if (profileError) {
-            console.error('Profile error:', profileError);
-            return res.status(400).json({ error: profileError.message });
+            } else {
+                console.log('✅ Profile created:', profileData);
+            }
+        } catch (profileException) {
+            console.error('Exception during profile creation:', profileException);
         }
 
         res.status(201).json({
-            message: 'User registered successfully',
-            user: authData.user,
-            profile: profileData
+            success: true,
+            message: 'Registration successful',
+            user: {
+                id: data.user.id,
+                email: data.user.email,
+                username: username || email.split('@')[0]
+            }
         });
+
     } catch (error) {
         console.error('Registration error:', error);
-        res.status(500).json({ error: 'Registration failed: ' + error.message });
+        
+        res.status(500).json({
+            success: false,
+            error: 'Registration failed',
+            message: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
+        });
     }
 };
 
-// Login user
+// Login user (BOTH regular users AND admin)
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        console.log('Login attempt:', email);
+        console.log('=== LOGIN ATTEMPT ===');
+        console.log('Email:', email);
 
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
-
-        if (error) {
-            console.error('Login error:', error);
-            return res.status(400).json({ error: error.message });
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email and password are required'
+            });
         }
 
+        // Authenticate with Supabase
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email,
+            password
+        });
+
+        if (authError) {
+            console.error('Login error:', authError);
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid email or password'
+            });
+        }
+
+        console.log('Login successful for user:', authData.user.id);
+
         // Get user profile
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile, error: profileError } = await supabaseAdmin
             .from('profiles')
             .select('*')
-            .eq('id', data.user.id)
+            .eq('id', authData.user.id)
             .single();
 
         if (profileError) {
             console.error('Profile fetch error:', profileError);
+            console.log('Creating missing profile...');
+            
+            // Create profile if missing
+            const { data: newProfile } = await supabaseAdmin
+                .from('profiles')
+                .insert({
+                    id: authData.user.id,
+                    email: email,
+                    username: authData.user.email.split('@')[0],
+                    full_name: authData.user.email.split('@')[0],
+                    role: 'user',
+                    status: 'verified'
+                })
+                .select()
+                .single();
+            
+            if (newProfile) {
+                console.log('✅ Profile created during login');
+            }
         }
 
+        console.log('User role:', profile?.role || 'user');
+
+        // CREATE OUR OWN JWT TOKEN (for admin dashboard access)
+        const jwtToken = jwt.sign(
+            { 
+                userId: authData.user.id,
+                email: authData.user.email,
+                role: profile?.role || 'user'
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        console.log('✅ Created JWT token');
+
+        // Return BOTH Supabase session (for users) AND our JWT (for admin)
         res.json({
+            success: true,
             message: 'Login successful',
-            session: data.session,
-            user: data.user,
-            profile: profile || null
+            token: jwtToken,  // ← OUR JWT token (for admin dashboard)
+            session: {        // ← Supabase session (for regular users)
+                access_token: authData.session.access_token,
+                refresh_token: authData.session.refresh_token
+            },
+            user: {
+                id: authData.user.id,
+                email: authData.user.email,
+                user_metadata: authData.user.user_metadata
+            },
+            profile: profile || {
+                id: authData.user.id,
+                email: authData.user.email,
+                role: 'user',
+                status: 'verified'
+            }
         });
+
     } catch (error) {
         console.error('Login error:', error);
-        res.status(500).json({ error: 'Login failed: ' + error.message });
+        
+        res.status(500).json({
+            success: false,
+            error: 'Login failed',
+            message: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
+        });
     }
 };
 
@@ -103,13 +246,22 @@ const getProfile = async (req, res) => {
 
         if (error) {
             console.error('Get profile error:', error);
-            return res.status(404).json({ error: 'Profile not found' });
+            return res.status(404).json({ 
+                success: false,
+                error: 'Profile not found' 
+            });
         }
 
-        res.json(data);
+        res.json({
+            success: true,
+            data
+        });
     } catch (error) {
         console.error('Get profile error:', error);
-        res.status(500).json({ error: 'Failed to fetch profile' });
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to fetch profile' 
+        });
     }
 };
 
@@ -133,16 +285,23 @@ const updateProfile = async (req, res) => {
 
         if (error) {
             console.error('Update profile error:', error);
-            return res.status(400).json({ error: error.message });
+            return res.status(400).json({ 
+                success: false,
+                error: error.message 
+            });
         }
 
         res.json({
+            success: true,
             message: 'Profile updated successfully',
-            profile: data
+            data
         });
     } catch (error) {
         console.error('Update profile error:', error);
-        res.status(500).json({ error: 'Failed to update profile' });
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to update profile' 
+        });
     }
 };
 
@@ -153,17 +312,24 @@ const logout = async (req, res) => {
 
         if (error) {
             console.error('Logout error:', error);
-            return res.status(400).json({ error: error.message });
+            return res.status(400).json({ 
+                success: false,
+                error: error.message 
+            });
         }
 
-        res.json({ message: 'Logout successful' });
+        res.json({ 
+            success: true,
+            message: 'Logout successful' 
+        });
     } catch (error) {
         console.error('Logout error:', error);
-        res.status(500).json({ error: 'Logout failed' });
+        res.status(500).json({ 
+            success: false,
+            error: 'Logout failed' 
+        });
     }
 };
-
-// Add these functions to your existing src/controllers/authController.js
 
 // Request password reset
 const requestPasswordReset = async (req, res) => {
@@ -171,31 +337,30 @@ const requestPasswordReset = async (req, res) => {
         const { email } = req.body;
 
         if (!email) {
-            return res.status(400).json({ error: 'Email is required' });
+            return res.status(400).json({ 
+                success: false,
+                error: 'Email is required' 
+            });
         }
 
         console.log('Password reset requested for:', email);
 
-        // Send password reset email using Supabase
-        const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
             redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:5500'}/forgot-password.html`,
         });
 
         if (error) {
             console.error('Reset password email error:', error);
-            // Don't reveal if email exists for security
-            return res.json({
-                message: 'If an account exists with this email, you will receive a password reset link.'
-            });
         }
 
         res.json({
-            message: 'Password reset email sent successfully'
+            success: true,
+            message: 'If an account exists with this email, you will receive a password reset link.'
         });
     } catch (error) {
         console.error('Request password reset error:', error);
-        // Don't reveal if email exists for security
         res.json({
+            success: true,
             message: 'If an account exists with this email, you will receive a password reset link.'
         });
     }
@@ -207,50 +372,53 @@ const resetPassword = async (req, res) => {
         const { token, password } = req.body;
 
         if (!token || !password) {
-            return res.status(400).json({ error: 'Token and password are required' });
+            return res.status(400).json({ 
+                success: false,
+                error: 'Token and password are required' 
+            });
         }
 
-        if (password.length < 8) {
-            return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+        if (password.length < 6) {
+            return res.status(400).json({ 
+                success: false,
+                error: 'Password must be at least 6 characters long' 
+            });
         }
 
         console.log('Resetting password with token');
 
-        // Update password using Supabase
         const { data, error } = await supabase.auth.updateUser({
             password: password
         });
 
         if (error) {
             console.error('Reset password error:', error);
-            return res.status(400).json({ error: error.message || 'Failed to reset password' });
+            return res.status(400).json({ 
+                success: false,
+                error: error.message || 'Failed to reset password' 
+            });
         }
 
         res.json({
+            success: true,
             message: 'Password reset successful',
             user: data.user
         });
     } catch (error) {
         console.error('Reset password error:', error);
-        res.status(500).json({ error: 'Failed to reset password' });
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to reset password' 
+        });
     }
 };
-
-// Update the exports at the bottom of authController.js to include these new functions:
-// module.exports = {
-//     register,
-//     login,
-//     getProfile,
-//     updateProfile,
-//     logout,
-//     requestPasswordReset,  // ADD THIS
-//     resetPassword          // ADD THIS
-// };
 
 module.exports = {
     register,
     login,
     getProfile,
     updateProfile,
-    logout
+    logout,
+    requestPasswordReset,
+    resetPassword
 };

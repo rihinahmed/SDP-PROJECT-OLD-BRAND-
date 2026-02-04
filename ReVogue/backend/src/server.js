@@ -1,12 +1,15 @@
-// src/server.js
+// src/server.js - UPDATED WITH ADMIN ROUTES
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
+const dashboardRoutes = require('./routes/dashboard');
 const productRoutes = require('./routes/products');
 const messageRoutes = require('./routes/messages');
 const notificationRoutes = require('./routes/notifications');
+const orderRoutes = require('./routes/orders');
+const adminRoutes = require('./routes/admin'); // ADD THIS LINE
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -29,9 +32,12 @@ app.use((req, res, next) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/admin', adminRoutes); // ADD THIS LINE
 
 // Health check
 app.get('/health', (req, res) => {
@@ -41,6 +47,15 @@ app.get('/health', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error('Error:', err.stack);
+    
+    // Handle multer errors
+    if (err.name === 'MulterError') {
+        return res.status(400).json({
+            error: 'File upload error',
+            message: err.message
+        });
+    }
+    
     res.status(500).json({ 
         error: 'Something went wrong!',
         message: process.env.NODE_ENV === 'development' ? err.message : undefined
@@ -58,6 +73,7 @@ app.listen(PORT, () => {
     console.log(`📍 Health check: http://localhost:${PORT}/health`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`✅ Ready to accept requests!`);
+    console.log(`🔐 Admin routes available at /api/admin`);
 });
 
 module.exports = app;

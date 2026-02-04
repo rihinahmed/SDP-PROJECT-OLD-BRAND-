@@ -29,7 +29,6 @@ class ScrollReveal {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
                     entry.target.classList.add('revealed');
-                    // Unobserve after revealing to prevent re-triggering
                     observer.unobserve(entry.target);
                 }
             });
@@ -38,7 +37,6 @@ class ScrollReveal {
         // Product Cards - Alternate animations
         const productCards = document.querySelectorAll('.product-card');
         productCards.forEach((card, index) => {
-            // Alternate between different animations
             const animationType = index % 4;
             
             switch(animationType) {
@@ -59,28 +57,28 @@ class ScrollReveal {
             observer.observe(card);
         });
 
-        // Filter Groups - Slide from left
+        // Filter Groups
         const filterGroups = document.querySelectorAll('.filter-group');
         filterGroups.forEach((group) => {
             group.classList.add('scroll-reveal-left');
             observer.observe(group);
         });
 
-        // Category Buttons - Popup animation
+        // Category Buttons
         const categoryBtns = document.querySelectorAll('.category-btn');
         categoryBtns.forEach((btn) => {
             btn.classList.add('scroll-reveal-popup');
             observer.observe(btn);
         });
 
-        // Categories Container - Slide from bottom
+        // Categories Container
         const categoriesContainer = document.querySelector('.categories-container');
         if (categoriesContainer) {
             categoriesContainer.classList.add('scroll-reveal-bottom');
             observer.observe(categoriesContainer);
         }
 
-        // Filter Sidebar - Slide from left
+        // Filter Sidebar
         const filterSidebar = document.querySelector('.filter-sidebar');
         if (filterSidebar) {
             filterSidebar.classList.add('scroll-reveal-left');
@@ -124,9 +122,15 @@ class ScrollReveal {
     }
 
     addCardTiltEffect() {
-        const cards = document.querySelectorAll('.product-card');
+        // Target both product cards (Index) and listing cards (Dashboard)
+        const cards = document.querySelectorAll('.product-card, .listing-card');
         
         cards.forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                // Remove transition instantly so the card follows mouse without lag
+                card.style.transition = 'none';
+            });
+
             card.addEventListener('mousemove', (e) => {
                 const rect = card.getBoundingClientRect();
                 const x = e.clientX - rect.left;
@@ -135,20 +139,29 @@ class ScrollReveal {
                 const centerX = rect.width / 2;
                 const centerY = rect.height / 2;
 
-                const rotateX = (y - centerY) / 10;
-                const rotateY = (centerX - x) / 10;
+                // Subtler rotation (higher divisor = less rotation)
+                const rotateX = (y - centerY) / 25;
+                const rotateY = (centerX - x) / 25;
 
+                // "Lower" movement: reduced translateY and scale
                 card.style.transform = `
                     perspective(1000px) 
                     rotateX(${rotateX}deg) 
                     rotateY(${rotateY}deg) 
-                    translateY(-15px) 
-                    scale(1.03)
+                    translateY(-5px) 
+                    scale(1.01)
                 `;
             });
             
             card.addEventListener('mouseleave', () => {
-                card.style.transform = '';
+                // Add smooth ease-out transition for the return animation
+                card.style.transition = 'transform 0.6s cubic-bezier(0.23, 1, 0.32, 1)';
+                card.style.transform = 'translateY(0) scale(1) rotateX(0) rotateY(0)';
+                
+                // Clear inline styles after animation to keep CSS clean
+                setTimeout(() => {
+                    card.style.transition = '';
+                }, 600);
             });
         });
     }
@@ -210,15 +223,12 @@ class EnhancedParticles {
     animate() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Update and draw particles
         this.particles.forEach(particle => {
             particle.update(this.mouse);
             particle.draw(this.ctx);
         });
 
-        // Connect nearby particles
         this.connectParticles();
-
         requestAnimationFrame(() => this.animate());
     }
 
@@ -261,7 +271,6 @@ class EnhancedParticle {
     }
 
     update(mouse) {
-        // Mouse interaction - repel particles
         if (mouse.x != null && mouse.y != null) {
             const dx = mouse.x - this.x;
             const dy = mouse.y - this.y;
@@ -275,19 +284,12 @@ class EnhancedParticle {
             }
         }
 
-        // Movement
         this.x += this.speedX;
         this.y += this.speedY;
 
-        // Bounce off edges
-        if (this.x > this.canvas.width || this.x < 0) {
-            this.speedX *= -1;
-        }
-        if (this.y > this.canvas.height || this.y < 0) {
-            this.speedY *= -1;
-        }
+        if (this.x > this.canvas.width || this.x < 0) this.speedX *= -1;
+        if (this.y > this.canvas.height || this.y < 0) this.speedY *= -1;
 
-        // Keep in bounds
         if (this.x < 0) this.x = 0;
         if (this.x > this.canvas.width) this.x = this.canvas.width;
         if (this.y < 0) this.y = 0;
@@ -300,7 +302,6 @@ class EnhancedParticle {
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
 
-        // Add glow effect
         ctx.shadowBlur = 15;
         ctx.shadowColor = this.color;
         ctx.fill();
@@ -323,24 +324,20 @@ class CursorTrail {
         document.addEventListener('mousemove', (e) => {
             this.addTrailPoint(e.clientX, e.clientY);
         });
-
         this.animate();
     }
 
     addTrailPoint(x, y) {
         this.trail.push({ x, y, life: 1 });
-        
         if (this.trail.length > this.trailLength) {
             this.trail.shift();
         }
     }
 
     animate() {
-        // Clean up old trail elements
         document.querySelectorAll('.cursor-trail').forEach(el => el.remove());
 
-        // Create new trail elements
-        this.trail.forEach((point, index) => {
+        this.trail.forEach((point) => {
             const el = document.createElement('div');
             el.className = 'cursor-trail';
             el.style.cssText = `
@@ -357,14 +354,11 @@ class CursorTrail {
                 transition: opacity 0.3s;
             `;
             document.body.appendChild(el);
-
             point.life -= 0.05;
-            
             setTimeout(() => el.remove(), 300);
         });
 
         this.trail = this.trail.filter(point => point.life > 0);
-        
         requestAnimationFrame(() => this.animate());
     }
 }
@@ -374,7 +368,7 @@ class CursorTrail {
 // ========================================
 
 function addRippleEffect() {
-    document.querySelectorAll('.btn-primary, .btn-secondary, .category-btn, .product-card').forEach(element => {
+    document.querySelectorAll('.btn-primary, .btn-secondary, .category-btn, .product-card, .listing-card').forEach(element => {
         element.addEventListener('click', function(e) {
             const ripple = document.createElement('span');
             const rect = this.getBoundingClientRect();
@@ -441,22 +435,19 @@ function pageLoadAnimation() {
 // RE-INITIALIZE ON PRODUCT FILTER
 // ========================================
 
-// Store the original filterProducts function
 let originalFilterProducts = null;
 
 function setupFilterProductsOverride() {
     if (typeof window.filterProducts === 'function') {
         originalFilterProducts = window.filterProducts;
         
-        // Override filterProducts to re-initialize scroll reveal after rendering
         window.filterProducts = function() {
             if (originalFilterProducts) {
                 originalFilterProducts();
             }
             
-            // Wait for products to render, then re-initialize scroll reveal
             setTimeout(() => {
-                const scrollReveal = new ScrollReveal();
+                new ScrollReveal();
                 addRippleEffect();
             }, 100);
         };
@@ -468,44 +459,41 @@ function setupFilterProductsOverride() {
 // ========================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Page load animation
     pageLoadAnimation();
     
-    // Wait a bit for the page to fully render before initializing scroll reveal
     setTimeout(() => {
-        // Initialize scroll reveal
         new ScrollReveal();
-        
-        // Initialize enhanced particles
         new EnhancedParticles();
-        
-        // Initialize cursor trail (only on desktop)
         if (window.innerWidth > 1024) {
             new CursorTrail();
         }
-        
-        // Add ripple effects
         addRippleEffect();
-        
-        // Add smooth scrolling
         addSmoothScroll();
-        
-        // Setup filter products override
         setupFilterProductsOverride();
         
         console.log('🎨 ReVogue Animations Loaded!');
     }, 200);
 });
 
-// Re-initialize scroll reveal when new products are added
 const productsGrid = document.getElementById('productsGrid');
 if (productsGrid) {
     const observer = new MutationObserver(() => {
         setTimeout(() => {
-            const scrollReveal = new ScrollReveal();
+            new ScrollReveal();
             addRippleEffect();
         }, 50);
     });
-    
     observer.observe(productsGrid, { childList: true });
+}
+
+// Also observe Dashboard Grid if present
+const myListingsGrid = document.getElementById('myListingsGrid');
+if (myListingsGrid) {
+    const observer = new MutationObserver(() => {
+        setTimeout(() => {
+            new ScrollReveal();
+            addRippleEffect();
+        }, 50);
+    });
+    observer.observe(myListingsGrid, { childList: true });
 }
