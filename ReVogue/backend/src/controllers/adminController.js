@@ -1,443 +1,442 @@
-// src/controllers/authController.js - WITH PENDING USER STATUS
-const { supabase, supabaseAdmin } = require('../config/supabase');
-const jwt = require('jsonwebtoken');
+// src/controllers/adminController.js - WITH VERIFICATION SYSTEM
 
-// Register new user - STARTS AS PENDING
-const register = async (req, res) => {
+const { supabaseAdmin } = require('../config/supabase');
+
+// Get admin dashboard stats
+exports.getStats = async (req, res) => {
     try {
-        const { email, password, username, fullName } = req.body;
-
-        console.log('=== REGISTRATION ATTEMPT ===');
-        console.log('Email:', email);
-        console.log('Username:', username);
-
-        // Validation
-        if (!email || !password) {
-            return res.status(400).json({
-                success: false,
-                error: 'Email and password are required'
-            });
-        }
-
-        if (password.length < 6) {
-            return res.status(400).json({
-                success: false,
-                error: 'Password must be at least 6 characters'
-            });
-        }
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid email format'
-            });
-        }
-
-        console.log('Creating user in Supabase Auth...');
+        console.log('=== GET ADMIN STATS ===');
         
-        const { data, error } = await supabaseAdmin.auth.admin.createUser({
-            email,
-            password,
-            email_confirm: true,
-            user_metadata: {
-                username: username || email.split('@')[0],
-                full_name: fullName || email.split('@')[0]
-            }
-        });
-
-        if (error) {
-            console.error('Supabase Auth error:', error);
-            
-            if (error.message.includes('already registered')) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'This email is already registered'
-                });
-            }
-            
-            return res.status(400).json({
-                success: false,
-                error: error.message || 'Registration failed'
-            });
-        }
-
-        console.log('✅ User created in Auth:', data.user.id);
-
-        // Create profile with PENDING status
-        console.log('Creating profile with PENDING status...');
-        
-        try {
-            const { data: profileData, error: profileError } = await supabaseAdmin
-                .from('profiles')
-                .insert({
-                    id: data.user.id,
-                    email: email,
-                    username: username || email.split('@')[0],
-                    full_name: fullName || email.split('@')[0],
-                    role: 'user',
-                    status: 'pending',  // ← NEW USERS START AS PENDING
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                })
-                .select()
-                .single();
-
-            if (profileError) {
-                console.error('Profile creation error:', profileError);
-                
-                const { data: existingProfile } = await supabaseAdmin
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', data.user.id)
-                    .single();
-                
-                if (existingProfile) {
-                    console.log('✅ Profile already exists');
-                } else {
-                    console.warn('⚠️ User created but profile creation failed');
-                }
-            } else {
-                console.log('✅ Profile created with PENDING status:', profileData);
-            }
-        } catch (profileException) {
-            console.error('Exception during profile creation:', profileException);
-        }
-
-        res.status(201).json({
-            success: true,
-            message: 'Registration successful. Please wait for admin approval.',
-            user: {
-                id: data.user.id,
-                email: data.user.email,
-                username: username || email.split('@')[0],
-                status: 'pending'
-            }
-        });
-
-    } catch (error) {
-        console.error('Registration error:', error);
-        
-        res.status(500).json({
-            success: false,
-            error: 'Registration failed',
-            message: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
-        });
-    }
-};
-
-// Login user - CHECK IF VERIFIED
-const login = async (req, res) => {
-    try {
-        const { email, password } = req.body;
-
-        console.log('=== LOGIN ATTEMPT ===');
-        console.log('Email:', email);
-
-        if (!email || !password) {
-            return res.status(400).json({
-                success: false,
-                error: 'Email and password are required'
-            });
-        }
-
-        // Authenticate with Supabase
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-            email,
-            password
-        });
-
-        if (authError) {
-            console.error('Login error:', authError);
-            return res.status(401).json({
-                success: false,
-                error: 'Invalid email or password'
-            });
-        }
-
-        console.log('Login successful for user:', authData.user.id);
-
-        // Get user profile
-        const { data: profile, error: profileError } = await supabaseAdmin
+        // Total users
+        const { count: totalUsers } = await supabaseAdmin
             .from('profiles')
-            .select('*')
-            .eq('id', authData.user.id)
-            .single();
-
-        if (profileError) {
-            console.error('Profile fetch error:', profileError);
-            console.log('Creating missing profile...');
-            
-            const { data: newProfile } = await supabaseAdmin
-                .from('profiles')
-                .insert({
-                    id: authData.user.id,
-                    email: email,
-                    username: authData.user.email.split('@')[0],
-                    full_name: authData.user.email.split('@')[0],
-                    role: 'user',
-                    status: 'pending'  // ← Default to pending
-                })
-                .select()
-                .single();
-            
-            if (newProfile) {
-                console.log('✅ Profile created during login with PENDING status');
-            }
-        }
-
-        // CHECK IF USER IS VERIFIED (not for admin)
-        if (profile && profile.role !== 'admin' && profile.status === 'pending') {
-            console.log('⚠️ User account pending verification');
-            return res.status(403).json({
-                success: false,
-                error: 'Your account is pending admin approval. Please wait for verification.',
-                status: 'pending'
-            });
-        }
-
-        // CHECK IF USER IS SUSPENDED
-        if (profile && profile.status === 'suspended') {
-            console.log('⚠️ User account suspended');
-            return res.status(403).json({
-                success: false,
-                error: 'Your account has been suspended. Please contact support.',
-                status: 'suspended'
-            });
-        }
-
-        console.log('User role:', profile?.role || 'user');
-        console.log('User status:', profile?.status || 'pending');
-
-        // CREATE OUR OWN JWT TOKEN
-        const jwtToken = jwt.sign(
-            { 
-                userId: authData.user.id,
-                email: authData.user.email,
-                role: profile?.role || 'user'
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: '7d' }
-        );
-
-        console.log('✅ Created JWT token');
-
+            .select('*', { count: 'exact', head: true });
+        
+        // Active products
+        const { count: activeProducts } = await supabaseAdmin
+            .from('products')
+            .select('*', { count: 'exact', head: true })
+            .in('status', ['available', 'active']);
+        
+        // Total revenue
+        const { data: orders } = await supabaseAdmin
+            .from('orders')
+            .select('total_amount')
+            .eq('payment_status', 'paid');
+        
+        const totalRevenue = orders?.reduce((sum, order) => sum + parseFloat(order.total_amount || 0), 0) || 0;
+        
+        // Pending verifications (users who submitted documents)
+        const { count: pendingVerifications } = await supabaseAdmin
+            .from('profiles')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'pending')
+            .not('verification_submitted_at', 'is', null);
+        
+        // Today's stats
+        const today = new Date().toISOString().split('T')[0];
+        
+        const { count: newUsersToday } = await supabaseAdmin
+            .from('profiles')
+            .select('*', { count: 'exact', head: true })
+            .gte('created_at', `${today}T00:00:00`)
+            .lte('created_at', `${today}T23:59:59`);
+        
+        const { count: productsListedToday } = await supabaseAdmin
+            .from('products')
+            .select('*', { count: 'exact', head: true })
+            .gte('created_at', `${today}T00:00:00`)
+            .lte('created_at', `${today}T23:59:59`);
+        
+        const { count: ordersToday } = await supabaseAdmin
+            .from('orders')
+            .select('*', { count: 'exact', head: true })
+            .gte('created_at', `${today}T00:00:00`)
+            .lte('created_at', `${today}T23:59:59`);
+        
+        const { data: todaysOrders } = await supabaseAdmin
+            .from('orders')
+            .select('total_amount')
+            .gte('created_at', `${today}T00:00:00`)
+            .lte('created_at', `${today}T23:59:59`);
+        
+        const todaysSales = todaysOrders?.reduce((sum, order) => sum + parseFloat(order.total_amount || 0), 0) || 0;
+        
+        const stats = {
+            total_users: totalUsers || 0,
+            active_products: activeProducts || 0,
+            total_revenue: totalRevenue,
+            pending_verifications: pendingVerifications || 0,
+            new_users_today: newUsersToday || 0,
+            products_listed_today: productsListedToday || 0,
+            orders_today: ordersToday || 0,
+            todays_sales: todaysSales
+        };
+        
+        console.log('Stats:', stats);
+        
         res.json({
             success: true,
-            message: 'Login successful',
-            token: jwtToken,
-            session: {
-                access_token: authData.session.access_token,
-                refresh_token: authData.session.refresh_token
-            },
-            user: {
-                id: authData.user.id,
-                email: authData.user.email,
-                user_metadata: authData.user.user_metadata
-            },
-            profile: profile || {
-                id: authData.user.id,
-                email: authData.user.email,
-                role: 'user',
-                status: 'pending'
-            }
+            data: stats
         });
-
-    } catch (error) {
-        console.error('Login error:', error);
         
+    } catch (error) {
+        console.error('Get stats error:', error);
         res.status(500).json({
             success: false,
-            error: 'Login failed',
-            message: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
+            error: 'Failed to fetch stats'
         });
     }
 };
 
-// Get user profile
-const getProfile = async (req, res) => {
+// Get all users with verification info
+exports.getAllUsers = async (req, res) => {
     try {
-        const { data, error } = await supabase
+        console.log('=== GET ALL USERS ===');
+        
+        const { data, error } = await supabaseAdmin
             .from('profiles')
             .select('*')
-            .eq('id', req.user.id)
-            .single();
-
-        if (error) {
-            console.error('Get profile error:', error);
-            return res.status(404).json({ 
-                success: false,
-                error: 'Profile not found' 
-            });
-        }
-
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        console.log('Found users:', data?.length || 0);
+        
         res.json({
             success: true,
-            data
+            data: data || []
         });
+        
     } catch (error) {
-        console.error('Get profile error:', error);
-        res.status(500).json({ 
+        console.error('Get users error:', error);
+        res.status(500).json({
             success: false,
-            error: 'Failed to fetch profile' 
+            error: 'Failed to fetch users'
         });
     }
 };
 
-// Update user profile
-const updateProfile = async (req, res) => {
+// Update user status (pending/verified/suspended)
+exports.updateUserStatus = async (req, res) => {
     try {
-        const { username, fullName, bio, location } = req.body;
-
-        const { data, error } = await supabase
+        const { userId } = req.params;
+        const { status, rejection_reason } = req.body;
+        
+        console.log('=== UPDATE USER STATUS ===');
+        console.log('User ID:', userId);
+        console.log('New status:', status);
+        console.log('Rejection reason:', rejection_reason);
+        
+        // Validate status
+        if (!['pending', 'verified', 'suspended'].includes(status)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid status. Must be: pending, verified, or suspended'
+            });
+        }
+        
+        const updateData = {
+            status,
+            updated_at: new Date().toISOString()
+        };
+        
+        // Set can_sell based on status
+        if (status === 'verified') {
+            updateData.can_sell = true;
+            updateData.verified_at = new Date().toISOString();
+            updateData.verified_by = req.user.id;  // Admin who verified
+            updateData.rejection_reason = null;  // Clear any previous rejection
+        } else {
+            updateData.can_sell = false;
+            if (status === 'pending' && rejection_reason) {
+                updateData.rejection_reason = rejection_reason;
+            }
+        }
+        
+        const { data, error } = await supabaseAdmin
             .from('profiles')
-            .update({
-                username,
-                full_name: fullName,
-                bio,
-                location,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', req.user.id)
+            .update(updateData)
+            .eq('id', userId)
             .select()
             .single();
-
-        if (error) {
-            console.error('Update profile error:', error);
-            return res.status(400).json({ 
-                success: false,
-                error: error.message 
-            });
-        }
-
+        
+        if (error) throw error;
+        
+        console.log('User status updated:', data);
+        
         res.json({
             success: true,
-            message: 'Profile updated successfully',
+            message: `User ${status === 'verified' ? 'verified' : status === 'suspended' ? 'suspended' : 'set to pending'}`,
             data
         });
+        
     } catch (error) {
-        console.error('Update profile error:', error);
-        res.status(500).json({ 
+        console.error('Update user status error:', error);
+        res.status(500).json({
             success: false,
-            error: 'Failed to update profile' 
+            error: 'Failed to update user status'
         });
     }
 };
 
-// Logout
-const logout = async (req, res) => {
+// Get user verification details
+exports.getUserVerification = async (req, res) => {
     try {
-        const { error } = await supabase.auth.signOut();
-
-        if (error) {
-            console.error('Logout error:', error);
-            return res.status(400).json({ 
-                success: false,
-                error: error.message 
-            });
-        }
-
-        res.json({ 
-            success: true,
-            message: 'Logout successful' 
-        });
-    } catch (error) {
-        console.error('Logout error:', error);
-        res.status(500).json({ 
-            success: false,
-            error: 'Logout failed' 
-        });
-    }
-};
-
-// Request password reset
-const requestPasswordReset = async (req, res) => {
-    try {
-        const { email } = req.body;
-
-        if (!email) {
-            return res.status(400).json({ 
-                success: false,
-                error: 'Email is required' 
-            });
-        }
-
-        console.log('Password reset requested for:', email);
-
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:5500'}/forgot-password.html`,
-        });
-
-        if (error) {
-            console.error('Reset password email error:', error);
-        }
-
+        const { userId } = req.params;
+        
+        console.log('=== GET USER VERIFICATION ===');
+        console.log('User ID:', userId);
+        
+        const { data, error } = await supabaseAdmin
+            .from('profiles')
+            .select('id, email, full_name, status, can_sell, verification_documents, verification_submitted_at, verified_at, rejection_reason')
+            .eq('id', userId)
+            .single();
+        
+        if (error) throw error;
+        
         res.json({
             success: true,
-            message: 'If an account exists with this email, you will receive a password reset link.'
+            data
         });
+        
     } catch (error) {
-        console.error('Request password reset error:', error);
-        res.json({
-            success: true,
-            message: 'If an account exists with this email, you will receive a password reset link.'
-        });
-    }
-};
-
-// Reset password with token
-const resetPassword = async (req, res) => {
-    try {
-        const { token, password } = req.body;
-
-        if (!token || !password) {
-            return res.status(400).json({ 
-                success: false,
-                error: 'Token and password are required' 
-            });
-        }
-
-        if (password.length < 6) {
-            return res.status(400).json({ 
-                success: false,
-                error: 'Password must be at least 6 characters long' 
-            });
-        }
-
-        console.log('Resetting password with token');
-
-        const { data, error } = await supabase.auth.updateUser({
-            password: password
-        });
-
-        if (error) {
-            console.error('Reset password error:', error);
-            return res.status(400).json({ 
-                success: false,
-                error: error.message || 'Failed to reset password' 
-            });
-        }
-
-        res.json({
-            success: true,
-            message: 'Password reset successful',
-            user: data.user
-        });
-    } catch (error) {
-        console.error('Reset password error:', error);
-        res.status(500).json({ 
+        console.error('Get user verification error:', error);
+        res.status(500).json({
             success: false,
-            error: 'Failed to reset password' 
+            error: 'Failed to fetch user verification'
         });
     }
 };
 
-module.exports = {
-    register,
-    login,
-    getProfile,
-    updateProfile,
-    logout,
-    requestPasswordReset,
-    resetPassword
+// Get all products (works with or without relationship)
+exports.getAllProducts = async (req, res) => {
+    try {
+        console.log('=== GET ALL PRODUCTS (ADMIN) ===');
+        
+        // Try with join first
+        let { data, error } = await supabaseAdmin
+            .from('products')
+            .select(`
+                *,
+                profiles:seller_id (
+                    id,
+                    username,
+                    full_name,
+                    status,
+                    can_sell
+                )
+            `)
+            .order('created_at', { ascending: false });
+        
+        // If join fails, get products without seller info
+        if (error && error.code === 'PGRST200') {
+            console.log('⚠️ Foreign key relationship missing, fetching products without seller info...');
+            
+            const { data: productsData, error: productsError } = await supabaseAdmin
+                .from('products')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (productsError) throw productsError;
+            
+            // Manually fetch seller info
+            data = await Promise.all(productsData.map(async (product) => {
+                if (product.seller_id) {
+                    const { data: profile } = await supabaseAdmin
+                        .from('profiles')
+                        .select('id, username, full_name, status, can_sell')
+                        .eq('id', product.seller_id)
+                        .single();
+                    
+                    return {
+                        ...product,
+                        profiles: profile
+                    };
+                }
+                return product;
+            }));
+        } else if (error) {
+            throw error;
+        }
+        
+        console.log('Found products:', data?.length || 0);
+        
+        res.json({
+            success: true,
+            data: data || []
+        });
+        
+    } catch (error) {
+        console.error('Get products error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch products',
+            details: error.message
+        });
+    }
+};
+
+// Update product status
+exports.updateProductStatus = async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const { status } = req.body;
+        
+        console.log('=== UPDATE PRODUCT STATUS ===');
+        console.log('Product ID:', productId);
+        console.log('New status:', status);
+        
+        const { data, error } = await supabaseAdmin
+            .from('products')
+            .update({ status, updated_at: new Date().toISOString() })
+            .eq('id', productId)
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        res.json({
+            success: true,
+            message: 'Product status updated',
+            data
+        });
+        
+    } catch (error) {
+        console.error('Update product status error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update product status'
+        });
+    }
+};
+
+// Delete product
+exports.deleteProduct = async (req, res) => {
+    try {
+        const { productId } = req.params;
+        
+        console.log('=== DELETE PRODUCT ===');
+        console.log('Product ID:', productId);
+        
+        const { error } = await supabaseAdmin
+            .from('products')
+            .delete()
+            .eq('id', productId);
+        
+        if (error) throw error;
+        
+        res.json({
+            success: true,
+            message: 'Product deleted successfully'
+        });
+        
+    } catch (error) {
+        console.error('Delete product error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to delete product'
+        });
+    }
+};
+
+// Get all orders
+exports.getAllOrders = async (req, res) => {
+    try {
+        console.log('=== GET ALL ORDERS (ADMIN) ===');
+        
+        const { data, error } = await supabaseAdmin
+            .from('orders')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        console.log('Found orders:', data?.length || 0);
+        
+        res.json({
+            success: true,
+            data: data || []
+        });
+        
+    } catch (error) {
+        console.error('Get orders error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch orders'
+        });
+    }
+};
+
+// Get activity log
+exports.getActivityLog = async (req, res) => {
+    try {
+        console.log('=== GET ACTIVITY LOG ===');
+        
+        const activities = [];
+        
+        // Recent users
+        const { data: recentUsers } = await supabaseAdmin
+            .from('profiles')
+            .select('id, full_name, username, status, created_at')
+            .order('created_at', { ascending: false })
+            .limit(5);
+        
+        recentUsers?.forEach(user => {
+            activities.push({
+                type: 'user',
+                title: 'New User Registration',
+                description: `${user.full_name || user.username} joined the platform (Status: ${user.status})`,
+                created_at: user.created_at
+            });
+        });
+        
+        // Recent products
+        const { data: recentProducts } = await supabaseAdmin
+            .from('products')
+            .select('id, name, created_at, seller_id')
+            .order('created_at', { ascending: false })
+            .limit(5);
+        
+        recentProducts?.forEach(product => {
+            activities.push({
+                type: 'product',
+                title: 'Product Listed',
+                description: `New product "${product.name}" was listed`,
+                created_at: product.created_at
+            });
+        });
+        
+        // Recent orders
+        const { data: recentOrders } = await supabaseAdmin
+            .from('orders')
+            .select('id, order_number, product_name, total_amount, created_at')
+            .order('created_at', { ascending: false })
+            .limit(5);
+        
+        recentOrders?.forEach(order => {
+            activities.push({
+                type: 'transaction',
+                title: 'New Order',
+                description: `Order #${order.order_number} placed for ${order.product_name}`,
+                created_at: order.created_at
+            });
+        });
+        
+        // Sort by date
+        activities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        
+        res.json({
+            success: true,
+            data: activities.slice(0, 20)
+        });
+        
+    } catch (error) {
+        console.error('Get activity log error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch activity log'
+        });
+    }
 };

@@ -1,4 +1,4 @@
-// /ReVogue/js/admin.js - COMPLETE VERSION
+// /ReVogue/js/admin.js - COMPLETE VERSION WITH FIXES
 const API_URL = 'http://localhost:3000/api';
 
 // Auth Service
@@ -70,6 +70,9 @@ let stats = {
     totalRevenue: 0,
     pendingVerifications: 0
 };
+
+// Chart instance
+let userGrowthChart = null;
 
 // ===== HELPER FUNCTIONS (MUST BE DEFINED BEFORE USE) =====
 
@@ -304,30 +307,177 @@ function renderAll() {
     renderProductsGrid();
     renderOrdersTable();
     renderActivityTimeline();
+    renderChart();
 }
 
 function renderStats() {
-    // Update stat cards
-    const totalUsersEl = document.querySelector('[data-stat="totalUsers"]');
-    const activeProductsEl = document.querySelector('[data-stat="activeProducts"]');
-    const totalRevenueEl = document.querySelector('[data-stat="totalRevenue"]');
-    const pendingEl = document.querySelector('[data-stat="pendingVerifications"]');
+    console.log('=== RENDERING STATS ===');
+    console.log('Stats data:', stats);
     
-    if (totalUsersEl) totalUsersEl.textContent = stats.total_users || 0;
-    if (activeProductsEl) activeProductsEl.textContent = stats.active_products || 0;
-    if (totalRevenueEl) totalRevenueEl.textContent = `৳${(stats.total_revenue || 0).toFixed(2)}`;
-    if (pendingEl) pendingEl.textContent = stats.pending_verifications || 0;
+    // Find ALL elements with data-target attribute and update them
+    const allDataTargets = document.querySelectorAll('[data-target]');
+    console.log('Found elements with data-target:', allDataTargets.length);
     
-    // Update quick stats
-    const todaysSalesEl = document.querySelector('[data-stat="todaysSales"]');
-    const newUsersTodayEl = document.querySelector('[data-stat="newUsersToday"]');
-    const productsListedEl = document.querySelector('[data-stat="productsListedToday"]');
-    const ordersTodayEl = document.querySelector('[data-stat="ordersToday"]');
+    allDataTargets.forEach((el, index) => {
+        // Find what this stat card is for by checking the label
+        const statCard = el.closest('.stat-card');
+        const quickStatItem = el.closest('.quick-stat-item');
+        
+        if (statCard) {
+            // Main stat card
+            const label = statCard.querySelector('.stat-label')?.textContent;
+            console.log(`Stat card ${index}: ${label}`);
+            
+            if (label?.includes('Total Users')) {
+                animateNumber(el, stats.total_users || 0);
+            } else if (label?.includes('Active Products')) {
+                animateNumber(el, stats.active_products || 0);
+            } else if (label?.includes('Total Revenue')) {
+                // Revenue has a span inside
+                const span = el.querySelector('span');
+                if (span) {
+                    animateNumber(span, stats.total_revenue || 0);
+                }
+            } else if (label?.includes('Pending')) {
+                animateNumber(el, stats.pending_verifications || 0);
+            }
+        } else if (quickStatItem) {
+            // Quick stat item
+            const label = quickStatItem.querySelector('.quick-stat-label')?.textContent;
+            console.log(`Quick stat ${index}: ${label}`);
+            
+            if (label?.includes("Today's Sales")) {
+                const span = el.querySelector('span');
+                if (span) {
+                    animateNumber(span, stats.todays_sales || 0);
+                }
+            } else if (label?.includes('New Users')) {
+                animateNumber(el, stats.new_users_today || 0);
+            } else if (label?.includes('Products Listed')) {
+                animateNumber(el, stats.products_listed_today || 0);
+            } else if (label?.includes('Orders Today')) {
+                animateNumber(el, stats.orders_today || 0);
+            }
+        }
+    });
     
-    if (todaysSalesEl) todaysSalesEl.textContent = `৳${(stats.todays_sales || 0).toFixed(2)}`;
-    if (newUsersTodayEl) newUsersTodayEl.textContent = stats.new_users_today || 0;
-    if (productsListedEl) productsListedEl.textContent = stats.products_listed_today || 0;
-    if (ordersTodayEl) ordersTodayEl.textContent = stats.orders_today || 0;
+    console.log('✅ Stats rendered');
+}
+
+function animateNumber(element, targetValue) {
+    let currentValue = 0;
+    const increment = targetValue / 50;
+    const duration = 1500; // 1.5 seconds
+    const stepTime = duration / 50;
+    
+    const timer = setInterval(() => {
+        currentValue += increment;
+        if (currentValue >= targetValue) {
+            element.textContent = Math.floor(targetValue).toLocaleString();
+            clearInterval(timer);
+        } else {
+            element.textContent = Math.floor(currentValue).toLocaleString();
+        }
+    }, stepTime);
+}
+
+function renderChart() {
+    const canvas = document.getElementById('userGrowthChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // If Chart.js is not loaded, create a simple canvas chart
+    if (typeof Chart === 'undefined') {
+        // Simple canvas-based chart
+        const width = canvas.width = canvas.offsetWidth;
+        const height = canvas.height = canvas.offsetHeight;
+        
+        // Sample data
+        const data = [12, 19, 15, 25, 32, 38, 47];
+        const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        
+        const maxValue = Math.max(...data);
+        const padding = 40;
+        const chartWidth = width - padding * 2;
+        const chartHeight = height - padding * 2;
+        
+        // Clear canvas
+        ctx.clearRect(0, 0, width, height);
+        
+        // Draw grid lines
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 5; i++) {
+            const y = padding + (chartHeight / 5) * i;
+            ctx.beginPath();
+            ctx.moveTo(padding, y);
+            ctx.lineTo(width - padding, y);
+            ctx.stroke();
+        }
+        
+        // Draw line chart
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        
+        const gradient = ctx.createLinearGradient(0, padding, 0, height - padding);
+        gradient.addColorStop(0, 'rgba(168, 85, 247, 0.2)');
+        gradient.addColorStop(1, 'rgba(168, 85, 247, 0)');
+        
+        data.forEach((value, index) => {
+            const x = padding + (chartWidth / (data.length - 1)) * index;
+            const y = height - padding - (value / maxValue) * chartHeight;
+            
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        
+        ctx.stroke();
+        
+        // Fill area under line
+        ctx.lineTo(width - padding, height - padding);
+        ctx.lineTo(padding, height - padding);
+        ctx.closePath();
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        
+        // Draw points
+        ctx.fillStyle = '#a855f7';
+        data.forEach((value, index) => {
+            const x = padding + (chartWidth / (data.length - 1)) * index;
+            const y = height - padding - (value / maxValue) * chartHeight;
+            
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw white border
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        });
+        
+        // Draw labels
+        ctx.fillStyle = '#6b7280';
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        labels.forEach((label, index) => {
+            const x = padding + (chartWidth / (data.length - 1)) * index;
+            ctx.fillText(label, x, height - padding + 20);
+        });
+        
+        // Draw y-axis labels
+        ctx.textAlign = 'right';
+        for (let i = 0; i <= 5; i++) {
+            const y = padding + (chartHeight / 5) * i;
+            const value = Math.round(maxValue - (maxValue / 5) * i);
+            ctx.fillText(value.toString(), padding - 10, y + 4);
+        }
+    }
 }
 
 function renderRecentActivity() {
@@ -390,7 +540,11 @@ function renderUsersTable(filterStatus = 'all') {
                 </td>
                 <td>${user.email || 'N/A'}</td>
                 <td>
-                    <span class="status-badge ${user.status || 'verified'}">${(user.status || 'verified').charAt(0).toUpperCase() + (user.status || 'verified').slice(1)}</span>
+                    <select class="status-dropdown" onchange="changeUserStatus('${user.id}', this.value)" data-user-id="${user.id}">
+                        <option value="pending" ${user.status === 'pending' ? 'selected' : ''}>Pending</option>
+                        <option value="verified" ${user.status === 'verified' ? 'selected' : ''}>Verified</option>
+                        <option value="suspended" ${user.status === 'suspended' ? 'selected' : ''}>Suspended</option>
+                    </select>
                 </td>
                 <td>${user.total_products || 0}</td>
                 <td>${formatDate(user.created_at)}</td>
@@ -408,9 +562,10 @@ function renderUsersTable(filterStatus = 'all') {
                                 <circle cx="12" cy="12" r="3"></circle>
                             </svg>
                         </button>
-                        <button class="action-btn ${user.status === 'suspended' ? '' : 'danger'}" onclick="toggleSuspendUser('${user.id}')" title="${user.status === 'suspended' ? 'Unsuspend' : 'Suspend'}">
+                        <button class="action-btn danger" onclick="deleteUser('${user.id}')" title="Delete User">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                ${user.status === 'suspended' ? '<polyline points="20 6 9 17 4 12"></polyline>' : '<circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line>'}
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                             </svg>
                         </button>
                     </div>
@@ -433,11 +588,21 @@ function renderProductsGrid(filterStatus = 'all') {
         return;
     }
     
-    grid.innerHTML = filteredProducts.map(product => `
+    grid.innerHTML = filteredProducts.map(product => {
+        // Map status to display text
+        const statusText = {
+            'available': 'Available',
+            'sold': 'Sold',
+            'pending': 'Pending',
+            'flagged': 'Flagged',
+            'suspended': 'Suspended'
+        }[product.status] || product.status;
+        
+        return `
         <div class="admin-product-card">
             <div class="product-image-wrapper">
                 <img src="${product.image_url || 'https://via.placeholder.com/400'}" alt="${product.name}" class="product-image">
-                <span class="product-status status-badge ${product.status}">${product.status.charAt(0).toUpperCase() + product.status.slice(1)}</span>
+                <span class="product-status status-badge ${product.status}">${statusText}</span>
                 <div class="product-actions">
                     ${product.status === 'pending' || product.status === 'flagged' ? `
                     <button class="product-action-btn" onclick="approveProduct('${product.id}')" title="Approve">
@@ -446,12 +611,21 @@ function renderProductsGrid(filterStatus = 'all') {
                         </svg>
                     </button>
                     ` : ''}
-                    <button class="product-action-btn" onclick="flagProduct('${product.id}')" title="Flag">
+                    ${product.status !== 'suspended' ? `
+                    <button class="product-action-btn" onclick="suspendProduct('${product.id}')" title="Suspend">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
-                            <line x1="4" y1="22" x2="4" y2="15"></line>
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="15" y1="9" x2="9" y2="15"></line>
+                            <line x1="9" y1="9" x2="15" y2="15"></line>
                         </svg>
                     </button>
+                    ` : `
+                    <button class="product-action-btn" onclick="approveProduct('${product.id}')" title="Reactivate">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </button>
+                    `}
                     <button class="product-action-btn" onclick="deleteProduct('${product.id}')" title="Delete">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="3 6 5 6 21 6"></polyline>
@@ -475,7 +649,7 @@ function renderProductsGrid(filterStatus = 'all') {
                 </div>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 function renderOrdersTable(filterStatus = 'all') {
@@ -574,15 +748,9 @@ function renderActivityTimeline(filterType = 'all') {
 
 // ===== USER ACTIONS =====
 
-async function toggleSuspendUser(userId) {
+async function changeUserStatus(userId, newStatus) {
     const user = users.find(u => u.id === userId);
     if (!user) return;
-    
-    const isSuspended = user.status === 'suspended';
-    const newStatus = isSuspended ? 'verified' : 'suspended';
-    const action = isSuspended ? 'unsuspend' : 'suspend';
-    
-    if (!confirm(`Are you sure you want to ${action} ${user.full_name || user.username}?`)) return;
     
     try {
         showLoading(true);
@@ -593,12 +761,38 @@ async function toggleSuspendUser(userId) {
         });
         
         user.status = newStatus;
-        renderUsersTable();
-        showNotification(`User ${isSuspended ? 'unsuspended' : 'suspended'} successfully`, 'success');
+        showNotification(`User status updated to ${newStatus}`, 'success');
         
     } catch (error) {
         console.error('Error updating user status:', error);
         showNotification('Failed to update user status', 'error');
+        // Revert dropdown
+        renderUsersTable();
+    } finally {
+        showLoading(false);
+    }
+}
+
+async function deleteUser(userId) {
+    const user = users.find(u => u.id === userId);
+    if (!user) return;
+    
+    if (!confirm(`Are you sure you want to delete ${user.full_name || user.username}? This action cannot be undone.`)) return;
+    
+    try {
+        showLoading(true);
+        
+        await apiRequest(`/admin/users/${userId}`, {
+            method: 'DELETE'
+        });
+        
+        users = users.filter(u => u.id !== userId);
+        renderUsersTable();
+        showNotification('User deleted successfully', 'success');
+        
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        showNotification('Failed to delete user', 'error');
     } finally {
         showLoading(false);
     }
@@ -635,24 +829,26 @@ async function approveProduct(productId) {
     }
 }
 
-async function flagProduct(productId) {
+async function suspendProduct(productId) {
+    if (!confirm('Are you sure you want to suspend this product?')) return;
+    
     try {
         showLoading(true);
         
         await apiRequest(`/admin/products/${productId}/status`, {
             method: 'PUT',
-            body: JSON.stringify({ status: 'flagged' })
+            body: JSON.stringify({ status: 'suspended' })
         });
         
         const product = products.find(p => p.id === productId);
-        if (product) product.status = 'flagged';
+        if (product) product.status = 'suspended';
         
         renderProductsGrid();
-        showNotification('Product flagged for review', 'warning');
+        showNotification('Product suspended', 'warning');
         
     } catch (error) {
-        console.error('Error flagging product:', error);
-        showNotification('Failed to flag product', 'error');
+        console.error('Error suspending product:', error);
+        showNotification('Failed to suspend product', 'error');
     } finally {
         showLoading(false);
     }
@@ -842,3 +1038,13 @@ document.head.appendChild(style);
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', initAdminDashboard);
+
+// Make functions globally accessible
+window.changeUserStatus = changeUserStatus;
+window.deleteUser = deleteUser;
+window.viewUserDetail = viewUserDetail;
+window.approveProduct = approveProduct;
+window.suspendProduct = suspendProduct;
+window.deleteProduct = deleteProduct;
+window.updateOrderStatus = updateOrderStatus;
+window.viewOrderDetails = viewOrderDetails;

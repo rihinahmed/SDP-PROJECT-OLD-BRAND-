@@ -1,8 +1,8 @@
-// src/controllers/authController.js - COMPLETE VERSION (Users + Admin)
+// src/controllers/authController.js - COMPLETE VERIFICATION SYSTEM
 const { supabase, supabaseAdmin } = require('../config/supabase');
 const jwt = require('jsonwebtoken');
 
-// Register new user
+// Register new user - STARTS AS PENDING, CAN'T SELL
 const register = async (req, res) => {
     try {
         const { email, password, username, fullName } = req.body;
@@ -64,8 +64,8 @@ const register = async (req, res) => {
 
         console.log('✅ User created in Auth:', data.user.id);
 
-        // Manually create profile
-        console.log('Creating profile...');
+        // Create profile with PENDING status and can_sell = false
+        console.log('Creating profile with PENDING status and selling DISABLED...');
         
         try {
             const { data: profileData, error: profileError } = await supabaseAdmin
@@ -76,7 +76,8 @@ const register = async (req, res) => {
                     username: username || email.split('@')[0],
                     full_name: fullName || email.split('@')[0],
                     role: 'user',
-                    status: 'verified',
+                    status: 'pending',  // ← PENDING by default
+                    can_sell: false,     // ← CANNOT sell until verified
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 })
@@ -85,21 +86,10 @@ const register = async (req, res) => {
 
             if (profileError) {
                 console.error('Profile creation error:', profileError);
-                
-                // Check if profile exists
-                const { data: existingProfile } = await supabaseAdmin
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', data.user.id)
-                    .single();
-                
-                if (existingProfile) {
-                    console.log('✅ Profile already exists');
-                } else {
-                    console.warn('⚠️ User created but profile creation failed');
-                }
             } else {
                 console.log('✅ Profile created:', profileData);
+                console.log('Status:', profileData.status);
+                console.log('Can sell:', profileData.can_sell);
             }
         } catch (profileException) {
             console.error('Exception during profile creation:', profileException);
@@ -107,11 +97,13 @@ const register = async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: 'Registration successful',
+            message: 'Registration successful. Please submit verification documents to start selling.',
             user: {
                 id: data.user.id,
                 email: data.user.email,
-                username: username || email.split('@')[0]
+                username: username || email.split('@')[0],
+                status: 'pending',
+                can_sell: false
             }
         });
 
@@ -126,7 +118,7 @@ const register = async (req, res) => {
     }
 };
 
-// Login user (BOTH regular users AND admin)
+// Login user - CHECK STATUS AND CAN_SELL
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -168,7 +160,6 @@ const login = async (req, res) => {
             console.error('Profile fetch error:', profileError);
             console.log('Creating missing profile...');
             
-            // Create profile if missing
             const { data: newProfile } = await supabaseAdmin
                 .from('profiles')
                 .insert({
@@ -177,7 +168,8 @@ const login = async (req, res) => {
                     username: authData.user.email.split('@')[0],
                     full_name: authData.user.email.split('@')[0],
                     role: 'user',
-                    status: 'verified'
+                    status: 'pending',
+                    can_sell: false
                 })
                 .select()
                 .single();
@@ -187,14 +179,20 @@ const login = async (req, res) => {
             }
         }
 
-        console.log('User role:', profile?.role || 'user');
+        console.log('User status:', profile?.status || 'pending');
+        console.log('Can sell:', profile?.can_sell || false);
 
-        // CREATE OUR OWN JWT TOKEN (for admin dashboard access)
+        // ✅ ALL USERS CAN LOGIN (pending, verified, suspended)
+        // Selling restrictions are enforced in frontend only
+        
+        // CREATE JWT TOKEN
         const jwtToken = jwt.sign(
             { 
                 userId: authData.user.id,
                 email: authData.user.email,
-                role: profile?.role || 'user'
+                role: profile?.role || 'user',
+                status: profile?.status || 'pending',
+                can_sell: profile?.can_sell || false
             },
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
@@ -202,12 +200,11 @@ const login = async (req, res) => {
 
         console.log('✅ Created JWT token');
 
-        // Return BOTH Supabase session (for users) AND our JWT (for admin)
         res.json({
             success: true,
             message: 'Login successful',
-            token: jwtToken,  // ← OUR JWT token (for admin dashboard)
-            session: {        // ← Supabase session (for regular users)
+            token: jwtToken,
+            session: {
                 access_token: authData.session.access_token,
                 refresh_token: authData.session.refresh_token
             },
@@ -220,7 +217,8 @@ const login = async (req, res) => {
                 id: authData.user.id,
                 email: authData.user.email,
                 role: 'user',
-                status: 'verified'
+                status: 'pending',
+                can_sell: false
             }
         });
 
@@ -231,6 +229,52 @@ const login = async (req, res) => {
             success: false,
             error: 'Login failed',
             message: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
+        });
+    }
+};
+
+// Submit verification documents
+const submitVerification = async (req, res) => {
+    try {
+        const { documents } = req.body;  // Array of document URLs
+        const userId = req.user.id;
+
+        console.log('=== SUBMIT VERIFICATION ===');
+        console.log('User ID:', userId);
+        console.log('Documents:', documents);
+
+        if (!documents || documents.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'At least one document is required'
+            });
+        }
+
+        // Update profile with verification documents
+        const { data, error } = await supabaseAdmin
+            .from('profiles')
+            .update({
+                verification_documents: documents,
+                verification_submitted_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        res.json({
+            success: true,
+            message: 'Verification documents submitted successfully. Please wait for admin approval.',
+            data
+        });
+
+    } catch (error) {
+        console.error('Submit verification error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to submit verification documents'
         });
     }
 };
@@ -416,6 +460,7 @@ const resetPassword = async (req, res) => {
 module.exports = {
     register,
     login,
+    submitVerification,
     getProfile,
     updateProfile,
     logout,
