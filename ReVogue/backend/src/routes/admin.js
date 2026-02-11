@@ -1,14 +1,13 @@
-// src/routes/admin.js
-const express = require('express');
-const router = express.Router();
-const adminController = require('../controllers/adminController');
+// src/routes/admin.js - COMPLETE WORKING VERSION
+const router = require('router')();
 const { authenticateUser, requireAdmin } = require('../middleware/auth');
+const adminController = require('../controllers/adminController');
 
-// All admin routes require authentication and admin role
+// Apply authentication middleware to all admin routes
 router.use(authenticateUser);
 router.use(requireAdmin);
 
-// Dashboard stats
+// Admin dashboard stats
 router.get('/stats', adminController.getStats);
 
 // User management

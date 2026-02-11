@@ -1,4 +1,4 @@
-// /ReVogue/js/login.js - Complete Supabase Integration
+// /ReVogue/js/login.js - FIXED VERSION WITH BACKEND JWT
 const API_URL = 'http://localhost:3000/api';
 
 // Auth Service
@@ -50,7 +50,7 @@ function showNotification(message, type = 'info') {
         top: 20px;
         right: 20px;
         padding: 15px 20px;
-        background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6'};
+        background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#eab308' : '#3b82f6'};
         color: white;
         border-radius: 8px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
@@ -105,7 +105,7 @@ function togglePassword(inputId) {
     input.type = type;
 }
 
-// Login Form Submission
+// Login Form Submission - FIXED VERSION
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -120,6 +120,9 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     submitBtn.disabled = true;
     
     try {
+        console.log('=== LOGIN ATTEMPT ===');
+        console.log('Email:', email);
+        
         const response = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
             headers: {
@@ -134,16 +137,30 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             throw new Error(data.error || 'Login failed');
         }
 
-        console.log('Login successful:', data);
+        console.log('=== LOGIN RESPONSE ===');
+        console.log('Full response:', data);
+        console.log('Token:', data.token);
+        console.log('Profile:', data.profile);
+        console.log('Status:', data.profile?.status);
+        console.log('Can sell:', data.profile?.can_sell);
 
-        // Store token and user data
-        AuthService.setToken(data.session.access_token);
-        AuthService.setUser(data.user);
+        // ✅ ALL USERS CAN LOGIN - No blocking based on status!
+        // Selling restrictions are enforced when trying to list products
 
-        // Also store profile and session info
+        // ✅ STORE BACKEND JWT TOKEN (NOT Supabase's!)
+        console.log('Storing auth data...');
+        AuthService.setToken(data.token);  // ✅ Backend JWT
+        AuthService.setUser(data.profile);  // ✅ Profile with role and status
+
+        // Also store in revogueUser for compatibility
         const user = {
-            email: data.user.email,
-            id: data.user.id,
+            email: data.profile.email,
+            id: data.profile.id,
+            username: data.profile.username,
+            fullName: data.profile.full_name,
+            role: data.profile.role,
+            status: data.profile.status,
+            can_sell: data.profile.can_sell,
             profile: data.profile,
             loggedIn: true,
             timestamp: new Date().toISOString()
@@ -155,9 +172,20 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             sessionStorage.setItem('revogueUser', JSON.stringify(user));
         }
 
-        showNotification('Login successful! Redirecting to dashboard...', 'success');
+        console.log('✅ Auth data stored successfully');
+        console.log('Token stored:', localStorage.getItem('authToken').substring(0, 30) + '...');
+        console.log('User stored:', JSON.parse(localStorage.getItem('user')));
+
+        // Show status-specific message
+        if (data.profile.status === 'pending') {
+            showNotification('Login successful! Submit verification to start selling.', 'success');
+        } else if (data.profile.status === 'suspended') {
+            showNotification('Login successful! Note: Selling is currently disabled.', 'warning');
+        } else {
+            showNotification('Login successful! Redirecting to dashboard...', 'success');
+        }
         
-        // Redirect to dashboard after short delay
+        // Redirect to dashboard
         setTimeout(() => {
             window.location.href = 'dashboard.html';
         }, 1000);
@@ -170,7 +198,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     }
 });
 
-// Signup Form Submission
+// Signup Form Submission - FIXED VERSION
 document.getElementById('signupForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -212,7 +240,7 @@ document.getElementById('signupForm').addEventListener('submit', async (e) => {
             body: JSON.stringify({
                 email,
                 password,
-                username: email.split('@')[0] + Math.random().toString(36).substring(7), // Generate unique username
+                username: email.split('@')[0] + Math.random().toString(36).substring(7),
                 fullName: `${firstName} ${lastName}`
             })
         });
@@ -224,54 +252,18 @@ document.getElementById('signupForm').addEventListener('submit', async (e) => {
         }
 
         console.log('Registration successful:', data);
-        showNotification('Account created successfully!', 'success');
+        showNotification('Account created successfully! Your account is pending admin approval.', 'success');
 
         // Hide forms and show success message
         loginForm.classList.remove('active');
         signupForm.classList.remove('active');
         successMessage.classList.add('active');
 
-        // Auto-login after successful registration
-        setTimeout(async () => {
-            try {
-                const loginResponse = await fetch(`${API_URL}/auth/login`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ email, password })
-                });
-
-                const loginData = await loginResponse.json();
-
-                if (loginResponse.ok) {
-                    AuthService.setToken(loginData.session.access_token);
-                    AuthService.setUser(loginData.user);
-                    
-                    const user = {
-                        email: loginData.user.email,
-                        id: loginData.user.id,
-                        profile: loginData.profile,
-                        firstName,
-                        lastName,
-                        loggedIn: true,
-                        timestamp: new Date().toISOString()
-                    };
-                    
-                    localStorage.setItem('revogueUser', JSON.stringify(user));
-                    
-                    // Redirect to dashboard
-                    window.location.href = 'dashboard.html';
-                } else {
-                    // If auto-login fails, redirect to login page
-                    window.location.href = 'login.html';
-                }
-            } catch (error) {
-                console.error('Auto-login error:', error);
-                // Redirect to login page if auto-login fails
-                window.location.href = 'login.html';
-            }
-        }, 2000);
+        // Redirect to login after a delay
+        setTimeout(() => {
+            switchToLogin();
+            showNotification('Please wait for admin approval before logging in.', 'info');
+        }, 3000);
 
     } catch (error) {
         console.error('Signup error:', error);
@@ -362,7 +354,7 @@ document.querySelectorAll('input[type="email"]').forEach(input => {
 window.addEventListener('DOMContentLoaded', () => {
     if (AuthService.isAuthenticated()) {
         const user = AuthService.getUser();
-        console.log('User already logged in:', user.email);
+        console.log('User already logged in:', user);
         
         // Redirect to dashboard if already logged in
         showNotification('You are already logged in. Redirecting...', 'info');
