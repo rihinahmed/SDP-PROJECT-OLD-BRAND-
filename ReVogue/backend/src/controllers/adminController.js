@@ -1,5 +1,6 @@
-// src/controllers/adminController.js
-const { supabase, supabaseAdmin } = require('../config/supabase');
+// src/controllers/adminController.js - WITH VERIFICATION SYSTEM
+
+const { supabaseAdmin } = require('../config/supabase');
 
 // Get admin dashboard stats
 exports.getStats = async (req, res) => {
@@ -25,11 +26,12 @@ exports.getStats = async (req, res) => {
         
         const totalRevenue = orders?.reduce((sum, order) => sum + parseFloat(order.total_amount || 0), 0) || 0;
         
-        // Pending verifications
+        // Pending verifications (users who submitted documents)
         const { count: pendingVerifications } = await supabaseAdmin
-            .from('products')
+            .from('profiles')
             .select('*', { count: 'exact', head: true })
-            .eq('status', 'pending');
+            .eq('status', 'pending')
+            .not('verification_submitted_at', 'is', null);
         
         // Today's stats
         const today = new Date().toISOString().split('T')[0];
@@ -87,32 +89,23 @@ exports.getStats = async (req, res) => {
     }
 };
 
-// Get all users
+// Get all users with verification info
 exports.getAllUsers = async (req, res) => {
     try {
         console.log('=== GET ALL USERS ===');
         
         const { data, error } = await supabaseAdmin
             .from('profiles')
-            .select(`
-                *,
-                products:products(count)
-            `)
+            .select('*')
             .order('created_at', { ascending: false });
         
         if (error) throw error;
         
-        // Transform data to include product count
-        const users = data.map(user => ({
-            ...user,
-            total_products: user.products?.[0]?.count || 0
-        }));
-        
-        console.log('Found users:', users.length);
+        console.log('Found users:', data?.length || 0);
         
         res.json({
             success: true,
-            data: users
+            data: data || []
         });
         
     } catch (error) {
@@ -124,28 +117,57 @@ exports.getAllUsers = async (req, res) => {
     }
 };
 
-// Update user status
+// Update user status (pending/verified/suspended)
 exports.updateUserStatus = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { status } = req.body;
+        const { status, rejection_reason } = req.body;
         
         console.log('=== UPDATE USER STATUS ===');
         console.log('User ID:', userId);
         console.log('New status:', status);
+        console.log('Rejection reason:', rejection_reason);
+        
+        // Validate status
+        if (!['pending', 'verified', 'suspended'].includes(status)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid status. Must be: pending, verified, or suspended'
+            });
+        }
+        
+        const updateData = {
+            status,
+            updated_at: new Date().toISOString()
+        };
+        
+        // Set can_sell based on status
+        if (status === 'verified') {
+            updateData.can_sell = true;
+            updateData.verified_at = new Date().toISOString();
+            updateData.verified_by = req.user.id;  // Admin who verified
+            updateData.rejection_reason = null;  // Clear any previous rejection
+        } else {
+            updateData.can_sell = false;
+            if (status === 'pending' && rejection_reason) {
+                updateData.rejection_reason = rejection_reason;
+            }
+        }
         
         const { data, error } = await supabaseAdmin
             .from('profiles')
-            .update({ status, updated_at: new Date().toISOString() })
+            .update(updateData)
             .eq('id', userId)
             .select()
             .single();
         
         if (error) throw error;
         
+        console.log('User status updated:', data);
+        
         res.json({
             success: true,
-            message: 'User status updated',
+            message: `User ${status === 'verified' ? 'verified' : status === 'suspended' ? 'suspended' : 'set to pending'}`,
             data
         });
         
@@ -157,38 +179,124 @@ exports.updateUserStatus = async (req, res) => {
         });
     }
 };
+// Delete user
+exports.deleteUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        console.log('=== DELETE USER ===');
+        console.log('User ID:', userId);
+        
+        // Delete from profiles table first (cascade should handle auth, but just in case)
+        const { error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .delete()
+            .eq('id', userId);
+        
+        if (profileError) throw profileError;
+        
+        // Also delete from Supabase Auth
+        const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+        
+        if (authError) {
+            console.warn('Auth deletion warning (profile already deleted):', authError.message);
+            // Don't throw - profile is already gone, auth cleanup is secondary
+        }
+        
+        res.json({
+            success: true,
+            message: 'User deleted successfully'
+        });
+        
+    } catch (error) {
+        console.error('Delete user error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to delete user'
+        });
+    }
+};
 
-// Get all products
+// Get user verification details
+exports.getUserVerification = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        console.log('=== GET USER VERIFICATION ===');
+        console.log('User ID:', userId);
+        
+        const { data, error } = await supabaseAdmin
+            .from('profiles')
+            .select('id, email, full_name, status, can_sell, verification_documents, verification_submitted_at, verified_at, rejection_reason')
+            .eq('id', userId)
+            .single();
+        
+        if (error) throw error;
+        
+        res.json({
+            success: true,
+            data
+        });
+        
+    } catch (error) {
+        console.error('Get user verification error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch user verification'
+        });
+    }
+};
+
+// Get all products (works with or without relationship)
 exports.getAllProducts = async (req, res) => {
     try {
         console.log('=== GET ALL PRODUCTS (ADMIN) ===');
         
-        const { data, error } = await supabaseAdmin
+        // Step 1: Get all products
+        const { data: products, error: productsError } = await supabaseAdmin
             .from('products')
-            .select(`
-                *,
-                profiles:seller_id (
-                    id,
-                    username,
-                    full_name
-                )
-            `)
+            .select('*')
             .order('created_at', { ascending: false });
         
-        if (error) throw error;
+        if (productsError) throw productsError;
+
+        if (!products || products.length === 0) {
+            return res.json({ success: true, data: [] });
+        }
+
+        // Step 2: Get all unique seller IDs
+        const sellerIds = [...new Set(products.map(p => p.seller_id).filter(Boolean))];
+
+        // Step 3: Batch fetch all profiles at once (FAST)
+        const { data: profiles } = await supabaseAdmin
+            .from('profiles')
+            .select('id, username, full_name, email, status, can_sell')
+            .in('id', sellerIds);
+
+        // Step 4: Create a lookup map
+        const profileMap = {};
+        (profiles || []).forEach(p => { profileMap[p.id] = p; });
+
+        // Step 5: Merge profiles into products
+        const productsWithProfiles = products.map(product => ({
+            ...product,
+            profiles: profileMap[product.seller_id] || null
+        }));
         
-        console.log('Found products:', data?.length || 0);
+        console.log('✅ Found products:', productsWithProfiles.length);
+        console.log('Sample product:', productsWithProfiles[0]); // Debug
         
         res.json({
             success: true,
-            data: data || []
+            data: productsWithProfiles
         });
         
     } catch (error) {
         console.error('Get products error:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to fetch products'
+            error: 'Failed to fetch products',
+            details: error.message
         });
     }
 };
@@ -289,13 +397,12 @@ exports.getActivityLog = async (req, res) => {
     try {
         console.log('=== GET ACTIVITY LOG ===');
         
-        // Get recent activities from multiple sources
         const activities = [];
         
         // Recent users
         const { data: recentUsers } = await supabaseAdmin
             .from('profiles')
-            .select('id, full_name, username, created_at')
+            .select('id, full_name, username, status, created_at')
             .order('created_at', { ascending: false })
             .limit(5);
         
@@ -303,7 +410,7 @@ exports.getActivityLog = async (req, res) => {
             activities.push({
                 type: 'user',
                 title: 'New User Registration',
-                description: `${user.full_name || user.username} joined the platform`,
+                description: `${user.full_name || user.username} joined the platform (Status: ${user.status})`,
                 created_at: user.created_at
             });
         });
@@ -311,7 +418,7 @@ exports.getActivityLog = async (req, res) => {
         // Recent products
         const { data: recentProducts } = await supabaseAdmin
             .from('products')
-            .select('id, name, created_at, profiles:seller_id(full_name, username)')
+            .select('id, name, created_at, seller_id')
             .order('created_at', { ascending: false })
             .limit(5);
         
@@ -319,7 +426,7 @@ exports.getActivityLog = async (req, res) => {
             activities.push({
                 type: 'product',
                 title: 'Product Listed',
-                description: `${product.profiles?.full_name || product.profiles?.username} listed "${product.name}"`,
+                description: `New product "${product.name}" was listed`,
                 created_at: product.created_at
             });
         });

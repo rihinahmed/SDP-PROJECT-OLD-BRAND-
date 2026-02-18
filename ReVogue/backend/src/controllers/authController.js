@@ -1,7 +1,8 @@
-// src/controllers/authController.js - VERSION WITH MANUAL PROFILE CREATION
+// src/controllers/authController.js - COMPLETE VERIFICATION SYSTEM
 const { supabase, supabaseAdmin } = require('../config/supabase');
+const jwt = require('jsonwebtoken');
 
-// Register new user
+// Register new user - STARTS AS PENDING, CAN'T SELL
 const register = async (req, res) => {
     try {
         const { email, password, username, fullName } = req.body;
@@ -9,7 +10,6 @@ const register = async (req, res) => {
         console.log('=== REGISTRATION ATTEMPT ===');
         console.log('Email:', email);
         console.log('Username:', username);
-        console.log('Full Name:', fullName);
 
         // Validation
         if (!email || !password) {
@@ -26,7 +26,6 @@ const register = async (req, res) => {
             });
         }
 
-        // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             return res.status(400).json({
@@ -35,9 +34,7 @@ const register = async (req, res) => {
             });
         }
 
-        // WORKAROUND: Create user without auto-confirm first
-        // This prevents the trigger from running during user creation
-        console.log('Step 1: Creating user in Supabase Auth (without trigger)...');
+        console.log('Creating user in Supabase Auth...');
         
         const { data, error } = await supabaseAdmin.auth.admin.createUser({
             email,
@@ -51,26 +48,11 @@ const register = async (req, res) => {
 
         if (error) {
             console.error('Supabase Auth error:', error);
-            console.error('Error details:', JSON.stringify(error, null, 2));
             
             if (error.message.includes('already registered')) {
                 return res.status(400).json({
                     success: false,
                     error: 'This email is already registered'
-                });
-            }
-            
-            // If it's a database error, try a different approach
-            if (error.message.includes('Database error')) {
-                console.log('Database error detected - trigger might be causing issues');
-                console.log('This usually means the trigger failed. Will manually create profile.');
-                
-                // Return a more helpful error
-                return res.status(500).json({
-                    success: false,
-                    error: 'Registration failed due to database configuration.',
-                    details: 'Please check Supabase Postgres logs for more details.',
-                    hint: 'Dashboard → Logs → Postgres Logs'
                 });
             }
             
@@ -80,18 +62,22 @@ const register = async (req, res) => {
             });
         }
 
-        console.log('✅ User created successfully in Auth:', data.user.id);
+        console.log('✅ User created in Auth:', data.user.id);
 
-        // Step 2: Manually create the profile (bypass trigger completely)
-        console.log('Step 2: Manually creating profile...');
+        // Create profile with PENDING status and can_sell = false
+        console.log('Creating profile with PENDING status and selling DISABLED...');
         
         try {
             const { data: profileData, error: profileError } = await supabaseAdmin
                 .from('profiles')
                 .insert({
                     id: data.user.id,
+                    email: email,
                     username: username || email.split('@')[0],
                     full_name: fullName || email.split('@')[0],
+                    role: 'user',
+                    status: 'pending',  // ← PENDING by default
+                    can_sell: false,     // ← CANNOT sell until verified
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 })
@@ -99,48 +85,30 @@ const register = async (req, res) => {
                 .single();
 
             if (profileError) {
-                console.error('❌ Profile creation error:', profileError);
-                console.log('Attempting to check if profile already exists...');
-                
-                // Check if profile already exists (maybe trigger worked?)
-                const { data: existingProfile } = await supabaseAdmin
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', data.user.id)
-                    .single();
-                
-                if (existingProfile) {
-                    console.log('✅ Profile already exists (trigger worked!):', existingProfile);
-                } else {
-                    console.error('❌ Profile does not exist and could not be created');
-                    console.error('Profile error details:', profileError);
-                    
-                    // Don't fail registration - user is created, just warn
-                    console.warn('⚠️  User created but profile creation failed');
-                }
+                console.error('Profile creation error:', profileError);
             } else {
-                console.log('✅ Profile created successfully:', profileData);
+                console.log('✅ Profile created:', profileData);
+                console.log('Status:', profileData.status);
+                console.log('Can sell:', profileData.can_sell);
             }
         } catch (profileException) {
             console.error('Exception during profile creation:', profileException);
-            // Continue anyway - user is created
         }
 
-        // Return success (user is created even if profile had issues)
         res.status(201).json({
             success: true,
-            message: 'Registration successful',
+            message: 'Registration successful. Please submit verification documents to start selling.',
             user: {
                 id: data.user.id,
                 email: data.user.email,
-                username: username || email.split('@')[0]
+                username: username || email.split('@')[0],
+                status: 'pending',
+                can_sell: false
             }
         });
 
     } catch (error) {
-        console.error('=== REGISTRATION ERROR ===');
-        console.error('Error:', error);
-        console.error('Stack:', error.stack);
+        console.error('Registration error:', error);
         
         res.status(500).json({
             success: false,
@@ -150,7 +118,7 @@ const register = async (req, res) => {
     }
 };
 
-// Login user
+// Login user - CHECK STATUS AND CAN_SELL
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -165,40 +133,43 @@ const login = async (req, res) => {
             });
         }
 
-        // Use admin client to sign in
-        const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+        // Authenticate with Supabase
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
             email,
             password
         });
 
-        if (error) {
-            console.error('Login error:', error);
+        if (authError) {
+            console.error('Login error:', authError);
             return res.status(401).json({
                 success: false,
                 error: 'Invalid email or password'
             });
         }
 
-        console.log('Login successful for user:', data.user.id);
+        console.log('Login successful for user:', authData.user.id);
 
         // Get user profile
         const { data: profile, error: profileError } = await supabaseAdmin
             .from('profiles')
             .select('*')
-            .eq('id', data.user.id)
+            .eq('id', authData.user.id)
             .single();
 
         if (profileError) {
             console.error('Profile fetch error:', profileError);
-            console.log('User exists but profile is missing - creating it now...');
+            console.log('Creating missing profile...');
             
-            // Create profile if it doesn't exist
             const { data: newProfile } = await supabaseAdmin
                 .from('profiles')
                 .insert({
-                    id: data.user.id,
-                    username: data.user.email.split('@')[0],
-                    full_name: data.user.email.split('@')[0]
+                    id: authData.user.id,
+                    email: email,
+                    username: authData.user.email.split('@')[0],
+                    full_name: authData.user.email.split('@')[0],
+                    role: 'user',
+                    status: 'pending',
+                    can_sell: false
                 })
                 .select()
                 .single();
@@ -208,29 +179,102 @@ const login = async (req, res) => {
             }
         }
 
+        console.log('User status:', profile?.status || 'pending');
+        console.log('Can sell:', profile?.can_sell || false);
+
+        // ✅ ALL USERS CAN LOGIN (pending, verified, suspended)
+        // Selling restrictions are enforced in frontend only
+        
+        // CREATE JWT TOKEN
+        const jwtToken = jwt.sign(
+            { 
+                userId: authData.user.id,
+                email: authData.user.email,
+                role: profile?.role || 'user',
+                status: profile?.status || 'pending',
+                can_sell: profile?.can_sell || false
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        console.log('✅ Created JWT token');
+
         res.json({
             success: true,
             message: 'Login successful',
+            token: jwtToken,
             session: {
-                access_token: data.session.access_token,
-                refresh_token: data.session.refresh_token
+                access_token: authData.session.access_token,
+                refresh_token: authData.session.refresh_token
             },
             user: {
-                id: data.user.id,
-                email: data.user.email,
-                user_metadata: data.user.user_metadata
+                id: authData.user.id,
+                email: authData.user.email,
+                user_metadata: authData.user.user_metadata
             },
-            profile: profile || null
+            profile: profile || {
+                id: authData.user.id,
+                email: authData.user.email,
+                role: 'user',
+                status: 'pending',
+                can_sell: false
+            }
         });
 
     } catch (error) {
-        console.error('=== LOGIN ERROR ===');
-        console.error('Error:', error);
+        console.error('Login error:', error);
         
         res.status(500).json({
             success: false,
             error: 'Login failed',
             message: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
+        });
+    }
+};
+
+// Submit verification documents
+const submitVerification = async (req, res) => {
+    try {
+        const { documents } = req.body;  // Array of document URLs
+        const userId = req.user.id;
+
+        console.log('=== SUBMIT VERIFICATION ===');
+        console.log('User ID:', userId);
+        console.log('Documents:', documents);
+
+        if (!documents || documents.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'At least one document is required'
+            });
+        }
+
+        // Update profile with verification documents
+        const { data, error } = await supabaseAdmin
+            .from('profiles')
+            .update({
+                verification_documents: documents,
+                verification_submitted_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        res.json({
+            success: true,
+            message: 'Verification documents submitted successfully. Please wait for admin approval.',
+            data
+        });
+
+    } catch (error) {
+        console.error('Submit verification error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to submit verification documents'
         });
     }
 };
@@ -353,7 +397,6 @@ const requestPasswordReset = async (req, res) => {
             console.error('Reset password email error:', error);
         }
 
-        // Always return success for security (don't reveal if email exists)
         res.json({
             success: true,
             message: 'If an account exists with this email, you will receive a password reset link.'
@@ -417,6 +460,7 @@ const resetPassword = async (req, res) => {
 module.exports = {
     register,
     login,
+    submitVerification,
     getProfile,
     updateProfile,
     logout,

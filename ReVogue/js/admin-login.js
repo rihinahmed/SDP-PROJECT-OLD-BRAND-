@@ -353,30 +353,31 @@ function initFormHandling() {
             console.log('Login response:', data);
 
             if (response.ok && data.success) {
-                console.log('=== FULL LOGIN RESPONSE ===');
-                console.log('Full data:', data);
-                console.log('data.profile:', data.profile);
-                console.log('data.user:', data.user);
+                console.log('=== LOGIN SUCCESS ===');
+                console.log('Full response:', data);
                 
-                // Get profile data - role is in data.profile
-                const profileData = data.profile;
-                const token = data.token || data.session?.access_token;
+                // Get OUR backend's token (NOT Supabase's session token!)
+                const token = data.token;  // This is OUR JWT token
+                const profileData = data.profile;  // This has the role
                 
+                console.log('Token (first 30 chars):', token ? token.substring(0, 30) + '...' : 'MISSING');
                 console.log('Profile data:', profileData);
                 console.log('Profile role:', profileData?.role);
                 
-                // Check if user has admin role (role is in profile object)
+                // Check if user has admin role
                 if (profileData && profileData.role === 'admin') {
                     console.log('✅ Admin login successful!');
                     
-                    // Store auth data - store the profile which has the role
+                    // Store OUR token (not Supabase's!)
                     localStorage.setItem('authToken', token);
                     localStorage.setItem('user', JSON.stringify(profileData));
                     
+                    // Verify what was stored
+                    console.log('Stored token:', localStorage.getItem('authToken').substring(0, 30) + '...');
+                    console.log('Stored user:', JSON.parse(localStorage.getItem('user')));
+                    
                     // Show success animation
                     loginBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-                    
-                    // Success notification
                     showSuccessNotification('Welcome back, Admin!');
                     
                     // Redirect to admin dashboard
@@ -385,7 +386,6 @@ function initFormHandling() {
                     }, 1000);
                     
                 } else {
-                    // Not an admin
                     console.log('❌ Access denied: Not an admin');
                     console.log('Full profile object:', profileData);
                     console.log('Profile keys:', profileData ? Object.keys(profileData) : 'null');

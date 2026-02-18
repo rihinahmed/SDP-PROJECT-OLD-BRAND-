@@ -1,4 +1,5 @@
-// src/routes/dashboard.js - COMPLETE VERSION
+// /backend/src/routes/dashboard.js - UPDATE THE AVATAR ROUTE
+
 const express = require('express');
 const router = express.Router();
 const dashboardController = require('../controllers/dashboardController');
@@ -27,7 +28,10 @@ router.get('/purchases', dashboardController.getUserPurchases);
 // Profile
 router.get('/profile', dashboardController.getUserProfile);
 router.put('/profile', dashboardController.updateProfile);
+
+// Avatar - UPDATED ROUTE
 router.post('/avatar', upload.single('avatar'), dashboardController.uploadAvatar);
+router.delete('/avatar', dashboardController.deleteAvatar); // ADD THIS
 
 // Settings
 router.get('/settings', dashboardController.getUserSettings);

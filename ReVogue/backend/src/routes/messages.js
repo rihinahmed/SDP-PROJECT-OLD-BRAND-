@@ -1,12 +1,20 @@
-// src/routes/messages.js
+// /backend/src/routes/messages.js
+
 const express = require('express');
 const router = express.Router();
 const messageController = require('../controllers/messageController');
 const { authenticateUser } = require('../middleware/auth');
 
-router.get('/conversations', authenticateUser, messageController.getConversations);
-router.get('/:conversationId', authenticateUser, messageController.getMessages);
-router.post('/', authenticateUser, messageController.sendMessage);
-router.put('/:conversationId/read', authenticateUser, messageController.markAsRead);
+// All routes require authentication
+router.use(authenticateUser);
+
+// Send message (creates conversation if needed)
+router.post('/', messageController.sendMessage);
+
+// Get all conversations for current user
+router.get('/conversations', messageController.getConversations);
+
+// Get messages in a specific conversation
+router.get('/conversation/:id', messageController.getConversationMessages);
 
 module.exports = router;
