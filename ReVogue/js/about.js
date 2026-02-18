@@ -1,4 +1,4 @@
-// /ReVogue/js/about.js
+// /ReVogue/js/about.js - COMPLETELY REDESIGNED WITH MODERN MESSAGING
 const API_URL = 'http://localhost:3000/api';
 
 // Auth Service
@@ -12,10 +12,408 @@ const AuthService = {
     },
     isAuthenticated() {
         return !!this.getToken();
+    },
+    getHeaders() {
+        const token = this.getToken();
+        return {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+        };
     }
 };
 
-// Scroll Reveal Logic
+// Global State for Messaging
+let activeChat = {
+    conversationId: null,
+    receiverId: null,
+    receiverName: null,
+    productId: null,
+    productName: null,
+    productImage: null,
+    productPrice: null
+};
+let notifications = [];
+let conversations = [];
+
+// API Service
+const API = {
+    async getNotifications() {
+        const response = await fetch(`${API_URL}/dashboard/notifications`, {
+            headers: AuthService.getHeaders()
+        });
+        if (!response.ok) throw new Error('Failed to load notifications');
+        const data = await response.json();
+        return data.data || [];
+    },
+
+    async getConversations() {
+        const response = await fetch(`${API_URL}/messages/conversations`, {
+            headers: AuthService.getHeaders()
+        });
+        if (!response.ok) throw new Error('Failed to load conversations');
+        const data = await response.json();
+        return data.data || [];
+    },
+
+    async getConversationMessages(id) {
+        const response = await fetch(`${API_URL}/messages/conversation/${id}`, {
+            headers: AuthService.getHeaders()
+        });
+        if (!response.ok) throw new Error('Failed to load messages');
+        const data = await response.json();
+        return data.data || data;
+    },
+
+    async sendMessage(payload) {
+        const response = await fetch(`${API_URL}/messages`, {
+            method: 'POST',
+            headers: AuthService.getHeaders(),
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error('Failed to send');
+        return await response.json();
+    }
+};
+
+// ============================================
+// MESSAGING & NOTIFICATIONS FUNCTIONS
+// ============================================
+
+async function loadUserData() {
+    if (!AuthService.isAuthenticated()) return;
+
+    try {
+        notifications = await API.getNotifications();
+        updateNotificationBadge();
+        renderNotificationsList();
+
+        conversations = await API.getConversations();
+        updateMessageBadge();
+        renderConversationsList();
+    } catch (e) {
+        console.error('Error loading user data:', e);
+    }
+}
+
+function updateNotificationBadge() {
+    const badge = document.getElementById('notificationBadge');
+    if (!badge) return;
+
+    const count = notifications.filter(n => !n.is_read).length;
+
+    if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function updateMessageBadge() {
+    const badge = document.getElementById('messagesBadge');
+    if (!badge) return;
+
+    const count = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+
+    if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function renderNotificationsList() {
+    const list = document.getElementById('notificationsList');
+    if (!list) return;
+
+    if (notifications.length === 0) {
+        list.innerHTML = `
+            <div style="text-align: center; padding: 3rem 2rem; color: #9ca3af;">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 1rem; opacity: 0.3;">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <h4 style="margin: 0 0 0.5rem 0; color: #6b7280; font-size: 1rem;">No notifications</h4>
+                <p style="margin: 0; font-size: 0.875rem;">You're all caught up!</p>
+            </div>
+        `;
+        return;
+    }
+
+    list.innerHTML = notifications.map(n => {
+        const isUnread = !n.is_read;
+        return `
+            <div class="notification-item-modern ${isUnread ? 'unread' : ''}">
+                <div class="notification-icon-modern">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                </div>
+                <div class="notification-content-modern">
+                    <div class="notification-title">${n.title}</div>
+                    <div class="notification-message">${n.message}</div>
+                    <div class="notification-time-modern">${new Date(n.created_at).toLocaleDateString()}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderConversationsList() {
+    const list = document.getElementById('messagesList');
+    if (!list) return;
+
+    if (conversations.length === 0) {
+        list.innerHTML = `
+            <div style="text-align: center; padding: 3rem 2rem; color: #9ca3af;">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 1rem; opacity: 0.3;">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <h4 style="margin: 0 0 0.5rem 0; color: #6b7280; font-size: 1rem;">No messages yet</h4>
+                <p style="margin: 0; font-size: 0.875rem;">Start a conversation!</p>
+            </div>
+        `;
+        return;
+    }
+
+    list.innerHTML = conversations.map(conv => {
+        const other = conv.other_user;
+        const name = other?.full_name || other?.username || 'User';
+        const initials = name.charAt(0).toUpperCase();
+        const unreadClass = conv.unread_count > 0 ? 'unread' : '';
+
+        const safeName = name.replace(/'/g, "\\'");
+        const productData = conv.product ? JSON.stringify(conv.product).replace(/"/g, '&quot;') : 'null';
+
+        return `
+            <div class="message-item-modern ${unreadClass}" onclick="openChat('${conv.id}', '${safeName}', ${productData})">
+                <div class="message-avatar-modern">
+                    ${initials}
+                    ${conv.unread_count > 0 ? '<div class="message-unread-dot-modern"></div>' : ''}
+                </div>
+                <div class="message-info-modern">
+                    <div class="message-header-modern">
+                        <div class="message-user-modern">${name}</div>
+                        <div class="message-time-modern">${new Date(conv.last_message_at).toLocaleDateString()}</div>
+                    </div>
+                    <div class="message-preview-wrapper">
+                        ${conv.product ? `<img src="${conv.product.image_url}" class="message-product-thumb">` : ''}
+                        <div class="message-preview-modern">${conv.last_message}</div>
+                        ${conv.unread_count > 0 ? `<div class="message-badge-modern">${conv.unread_count}</div>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function openChat(conversationId, username, productData) {
+    let product = productData;
+    if (typeof productData === 'string' && productData !== 'null') {
+        try {
+            product = JSON.parse(productData.replace(/&quot;/g, '"'));
+        } catch (e) {
+            product = null;
+        }
+    }
+
+    activeChat = {
+        conversationId: conversationId,
+        receiverId: null,
+        receiverName: username,
+        productId: product?.id || null,
+        productName: product?.name || null,
+        productImage: product?.image_url || null,
+        productPrice: product?.price || null
+    };
+
+    document.getElementById('chatUsername').textContent = username;
+    document.getElementById('chatAvatar').textContent = username.charAt(0).toUpperCase();
+    document.getElementById('chatMessages').innerHTML = '<div style="text-align:center; padding:2rem; color:#9ca3af;">Loading...</div>';
+
+    document.getElementById('chatModal').classList.add('active');
+    document.getElementById('messagesPanel')?.classList.remove('active');
+
+    try {
+        const data = await API.getConversationMessages(conversationId);
+        const msgs = data.messages || [];
+
+        renderChatMessages(msgs, product);
+        loadUserData();
+    } catch (e) {
+        console.error(e);
+        document.getElementById('chatMessages').innerHTML = '<div style="text-align:center; color:#ef4444; padding:2rem;">Failed to load messages</div>';
+    }
+}
+
+function renderChatMessages(msgs, productData = null) {
+    const container = document.getElementById('chatMessages');
+    const user = AuthService.getUser();
+
+    let html = '';
+
+    // Product card at top
+    if (productData && productData.id) {
+        html += `
+            <div style="text-align: center; margin: 1rem auto 2rem auto; max-width: 350px;">
+                <div style="background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); border-radius: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; border: 2px solid #e5e7eb;">
+                    <img src="${productData.image_url}" alt="${productData.name}" style="width: 100%; height: 180px; object-fit: cover;">
+                    <div style="padding: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            </svg>
+                            <span style="color: #6b7280; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">Product</span>
+                        </div>
+                        <h4 style="margin: 0 0 0.5rem 0; color: #1f2937; font-size: 0.9375rem; font-weight: 600;">${productData.name}</h4>
+                        <p style="margin: 0; color: #a855f7; font-weight: 700; font-size: 1.125rem;">BDT ${parseFloat(productData.price).toFixed(2)}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (activeChat.productId && activeChat.productName) {
+        html += `
+            <div style="text-align: center; margin: 1rem auto 2rem auto; max-width: 350px;">
+                <div style="background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); border-radius: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; border: 2px solid #e5e7eb;">
+                    <img src="${activeChat.productImage}" alt="${activeChat.productName}" style="width: 100%; height: 180px; object-fit: cover;">
+                    <div style="padding: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            </svg>
+                            <span style="color: #6b7280; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">Product</span>
+                        </div>
+                        <h4 style="margin: 0 0 0.5rem 0; color: #1f2937; font-size: 0.9375rem; font-weight: 600;">${activeChat.productName}</h4>
+                        <p style="margin: 0; color: #a855f7; font-weight: 700; font-size: 1.125rem;">BDT ${parseFloat(activeChat.productPrice).toFixed(2)}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    if (msgs.length === 0) {
+        html += `
+            <div style="text-align: center; color: #9ca3af; margin-top: 2rem; font-size: 0.875rem;">
+                No messages yet. Start the conversation!
+            </div>
+        `;
+    } else {
+        html += msgs.map(msg => {
+            const isMe = msg.sender_id === user.id;
+            const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const messageText = msg.content || msg.message || '';
+
+            return `
+                <div class="chat-message-modern ${isMe ? 'sent' : 'received'}">
+                    <div class="chat-message-content-modern">
+                        <div class="chat-bubble-modern">${escapeHtml(messageText)}</div>
+                        <div class="chat-time-modern">${time}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    container.innerHTML = html;
+    container.scrollTop = container.scrollHeight;
+}
+
+async function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const container = document.getElementById('chatMessages');
+
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const messageHTML = `
+        <div class="chat-message-modern sent">
+            <div class="chat-message-content-modern">
+                <div class="chat-bubble-modern">${escapeHtml(text)}</div>
+                <div class="chat-time-modern">${time}</div>
+            </div>
+        </div>
+    `;
+
+    container.insertAdjacentHTML('beforeend', messageHTML);
+    container.scrollTop = container.scrollHeight;
+    input.value = '';
+
+    try {
+        const payload = { message: text };
+
+        if (activeChat.conversationId) {
+            payload.conversation_id = activeChat.conversationId;
+        } else if (activeChat.receiverId) {
+            payload.receiver_id = activeChat.receiverId;
+            if (activeChat.productId) payload.product_id = activeChat.productId;
+        }
+
+        const res = await API.sendMessage(payload);
+
+        if (res.data && res.data.conversation_id) {
+            activeChat.conversationId = res.data.conversation_id;
+            loadUserData();
+        }
+    } catch (e) {
+        console.error(e);
+        showNotification('Failed to send', 'error');
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showNotification(msg, type = 'info') {
+    const d = document.createElement('div');
+    d.className = `notification notification-${type}`;
+    d.textContent = msg;
+    d.style.cssText = `position:fixed; top:20px; right:20px; padding:15px; background:${type === 'error' ? '#ef4444' : '#10b981'}; color:white; border-radius:8px; z-index:9999; animation: slideIn 0.3s;`;
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 3000);
+}
+
+// ============================================
+// EVENT LISTENERS
+// ============================================
+
+document.getElementById('notificationBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const p = document.getElementById('notificationsPanel');
+    p.classList.toggle('active');
+    document.getElementById('messagesPanel')?.classList.remove('active');
+});
+
+document.getElementById('messagesBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const p = document.getElementById('messagesPanel');
+    p.classList.toggle('active');
+    document.getElementById('notificationsPanel')?.classList.remove('active');
+});
+
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.dropdown-panel-modern') && !e.target.closest('.icon-btn')) {
+        document.querySelectorAll('.dropdown-panel-modern').forEach(p => p.classList.remove('active'));
+    }
+});
+
+document.getElementById('sendMessageBtn')?.addEventListener('click', sendChatMessage);
+document.getElementById('chatInput')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendChatMessage();
+});
+document.getElementById('closeChatModal')?.addEventListener('click', () => {
+    document.getElementById('chatModal').classList.remove('active');
+});
+
+// ============================================
+// ORIGINAL ABOUT PAGE CODE
+// ============================================
+
 class ScrollReveal {
     constructor() {
         this.init();
@@ -37,14 +435,12 @@ class ScrollReveal {
             });
         }, options);
 
-        // Elements to animate
         document.querySelectorAll('.scroll-reveal-left, .scroll-reveal-right, .scroll-reveal-bottom, .scroll-reveal-popup, .scroll-reveal-zoom').forEach(el => {
             observer.observe(el);
         });
     }
 }
 
-// Particle Animation
 const canvas = document.getElementById('particleCanvas');
 const ctx = canvas.getContext('2d');
 
@@ -58,7 +454,7 @@ class Particle {
     constructor() {
         this.reset();
     }
-    
+
     reset() {
         this.x = Math.random() * canvas.width;
         this.y = Math.random() * canvas.height;
@@ -108,8 +504,6 @@ window.addEventListener('resize', () => {
 initParticles();
 animateParticles();
 
-// Data - Stats
-// Fallback stats are used immediately to prevent layout shift, then updated if API succeeds
 const defaultStats = [
     {
         icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
@@ -133,12 +527,11 @@ const defaultStats = [
     }
 ];
 
-// Data - Values
 const values = [
     {
         icon: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>',
         title: 'Radical Sustainability',
-        description: 'We don’t just minimize harm; we actively regenerate. Every sale funds local green initiatives.',
+        description: "We don't just minimize harm; we actively regenerate. Every sale funds local green initiatives.",
         gradient: 'linear-gradient(135deg, #4ade80 0%, #059669 100%)'
     },
     {
@@ -161,7 +554,6 @@ const values = [
     }
 ];
 
-// Data - Team
 const team = [
     { name: 'Sultan Bin Alam', role: 'FrontEnd Engineer and Concept', avatar: '👨' },
     { name: 'Md. Mahfuz Ahmed Rihin', role: 'Full Stack Developer', avatar: '🧙‍♂️' },
@@ -169,7 +561,6 @@ const team = [
     { name: 'Sadequr Rahman', role: 'Backend Developer', avatar: '🌱' }
 ];
 
-// Render Functions
 function renderStats() {
     const grid = document.getElementById('statsGrid');
     grid.innerHTML = defaultStats.map((stat, index) => `
@@ -209,15 +600,14 @@ function renderTeam() {
     `).join('');
 }
 
-// Stats Counter Animation
 function animateStatNumbers() {
     const statCards = document.querySelectorAll('.stat-card');
-    
+
     statCards.forEach((card, index) => {
         const valueElement = card.querySelector('.stat-value');
         const finalValueStr = valueElement.textContent;
         const numMatch = finalValueStr.match(/(\d+(\.\d+)?)/);
-        
+
         if (numMatch) {
             const finalValue = parseFloat(numMatch[0]);
             const suffix = finalValueStr.replace(numMatch[0], '');
@@ -228,22 +618,20 @@ function animateStatNumbers() {
             function update(currentTime) {
                 const elapsed = currentTime - startTime;
                 const progress = Math.min(elapsed / duration, 1);
-                
-                // Ease out quart
+
                 const ease = 1 - Math.pow(1 - progress, 4);
-                
+
                 const current = startValue + (finalValue - startValue) * ease;
-                
-                // Format logic: if original had decimal, keep it. If int, keep int.
+
                 const formatted = finalValue % 1 === 0 ? Math.floor(current) : current.toFixed(1);
-                
+
                 valueElement.textContent = formatted + suffix;
 
                 if (progress < 1) {
                     requestAnimationFrame(update);
                 }
             }
-            
+
             requestAnimationFrame(update);
         }
     });
@@ -263,7 +651,6 @@ function observeStatsNumbers() {
     if (statsGrid) observer.observe(statsGrid);
 }
 
-// CTA & Sell Buttons
 document.querySelector('.cta-button')?.addEventListener('click', () => {
     window.location.href = AuthService.isAuthenticated() ? 'shop.html' : 'login.html';
 });
@@ -272,15 +659,20 @@ document.getElementById('sellBtn')?.addEventListener('click', () => {
     window.location.href = AuthService.isAuthenticated() ? 'index.html' : 'login.html';
 });
 
-// Init
+window.openChat = openChat;
+
 document.addEventListener('DOMContentLoaded', () => {
     renderStats();
     renderValues();
     renderTeam();
-    
-    // Initialize Scroll Reveal after rendering content
+
     setTimeout(() => {
         new ScrollReveal();
         observeStatsNumbers();
     }, 100);
+
+    if (AuthService.isAuthenticated()) {
+        loadUserData();
+        setInterval(loadUserData, 15000);
+    }
 });

@@ -10,6 +10,8 @@ const messageRoutes = require('./routes/messages');
 const notificationRoutes = require('./routes/notifications');
 const orderRoutes = require('./routes/orders');
 const adminRoutes = require('./routes/admin'); // ADD THIS LINE
+const contactRoutes = require('./routes/contact');
+const supportRoutes = require('./routes/support');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -38,6 +40,8 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminRoutes); // ADD THIS LINE
+app.use('/api/contact', contactRoutes);
+app.use('/api/support', supportRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

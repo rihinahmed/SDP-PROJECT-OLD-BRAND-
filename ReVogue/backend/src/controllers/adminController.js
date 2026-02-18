@@ -179,6 +179,43 @@ exports.updateUserStatus = async (req, res) => {
         });
     }
 };
+// Delete user
+exports.deleteUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        console.log('=== DELETE USER ===');
+        console.log('User ID:', userId);
+        
+        // Delete from profiles table first (cascade should handle auth, but just in case)
+        const { error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .delete()
+            .eq('id', userId);
+        
+        if (profileError) throw profileError;
+        
+        // Also delete from Supabase Auth
+        const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+        
+        if (authError) {
+            console.warn('Auth deletion warning (profile already deleted):', authError.message);
+            // Don't throw - profile is already gone, auth cleanup is secondary
+        }
+        
+        res.json({
+            success: true,
+            message: 'User deleted successfully'
+        });
+        
+    } catch (error) {
+        console.error('Delete user error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to delete user'
+        });
+    }
+};
 
 // Get user verification details
 exports.getUserVerification = async (req, res) => {
@@ -215,57 +252,43 @@ exports.getAllProducts = async (req, res) => {
     try {
         console.log('=== GET ALL PRODUCTS (ADMIN) ===');
         
-        // Try with join first
-        let { data, error } = await supabaseAdmin
+        // Step 1: Get all products
+        const { data: products, error: productsError } = await supabaseAdmin
             .from('products')
-            .select(`
-                *,
-                profiles:seller_id (
-                    id,
-                    username,
-                    full_name,
-                    status,
-                    can_sell
-                )
-            `)
+            .select('*')
             .order('created_at', { ascending: false });
         
-        // If join fails, get products without seller info
-        if (error && error.code === 'PGRST200') {
-            console.log('⚠️ Foreign key relationship missing, fetching products without seller info...');
-            
-            const { data: productsData, error: productsError } = await supabaseAdmin
-                .from('products')
-                .select('*')
-                .order('created_at', { ascending: false });
-            
-            if (productsError) throw productsError;
-            
-            // Manually fetch seller info
-            data = await Promise.all(productsData.map(async (product) => {
-                if (product.seller_id) {
-                    const { data: profile } = await supabaseAdmin
-                        .from('profiles')
-                        .select('id, username, full_name, status, can_sell')
-                        .eq('id', product.seller_id)
-                        .single();
-                    
-                    return {
-                        ...product,
-                        profiles: profile
-                    };
-                }
-                return product;
-            }));
-        } else if (error) {
-            throw error;
+        if (productsError) throw productsError;
+
+        if (!products || products.length === 0) {
+            return res.json({ success: true, data: [] });
         }
+
+        // Step 2: Get all unique seller IDs
+        const sellerIds = [...new Set(products.map(p => p.seller_id).filter(Boolean))];
+
+        // Step 3: Batch fetch all profiles at once (FAST)
+        const { data: profiles } = await supabaseAdmin
+            .from('profiles')
+            .select('id, username, full_name, email, status, can_sell')
+            .in('id', sellerIds);
+
+        // Step 4: Create a lookup map
+        const profileMap = {};
+        (profiles || []).forEach(p => { profileMap[p.id] = p; });
+
+        // Step 5: Merge profiles into products
+        const productsWithProfiles = products.map(product => ({
+            ...product,
+            profiles: profileMap[product.seller_id] || null
+        }));
         
-        console.log('Found products:', data?.length || 0);
+        console.log('✅ Found products:', productsWithProfiles.length);
+        console.log('Sample product:', productsWithProfiles[0]); // Debug
         
         res.json({
             success: true,
-            data: data || []
+            data: productsWithProfiles
         });
         
     } catch (error) {

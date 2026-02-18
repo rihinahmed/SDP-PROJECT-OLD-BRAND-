@@ -455,6 +455,10 @@ const uploadAvatar = async (req, res) => {
     try {
         const userId = req.user.id;
 
+        console.log('=== UPLOAD AVATAR CONTROLLER ===');
+        console.log('User ID:', userId);
+        console.log('File:', req.file);
+
         if (!req.file) {
             return res.status(400).json({
                 success: false,
@@ -462,14 +466,22 @@ const uploadAvatar = async (req, res) => {
             });
         }
 
-        // The upload middleware already handled the Supabase storage upload
-        // req.file.cloudUrl contains the public URL
+        if (!req.file.cloudUrl) {
+            console.error('No cloudUrl in req.file');
+            return res.status(500).json({
+                success: false,
+                error: 'File upload failed - no URL generated'
+            });
+        }
+
+        console.log('Avatar URL:', req.file.cloudUrl);
 
         // Update profile with new avatar URL
         const { data, error } = await supabaseAdmin
             .from('profiles')
             .update({
                 avatar_url: req.file.cloudUrl,
+                profile_picture: req.file.cloudUrl, // Also update this for compatibility
                 updated_at: new Date().toISOString()
             })
             .eq('id', userId)
@@ -484,11 +496,15 @@ const uploadAvatar = async (req, res) => {
             });
         }
 
+        console.log('✅ Avatar updated in database');
+
         res.json({
             success: true,
             message: 'Avatar updated successfully',
             data: {
-                avatar_url: req.file.cloudUrl
+                avatar_url: req.file.cloudUrl,
+                profile_picture: req.file.cloudUrl,
+                profile: data
             }
         });
     } catch (error) {
@@ -500,6 +516,69 @@ const uploadAvatar = async (req, res) => {
     }
 };
 
+//Delete Avatar
+const deleteAvatar = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        console.log('=== DELETE AVATAR ===');
+        console.log('User ID:', userId);
+
+        // Get current avatar to delete from storage
+        const { data: profile } = await supabaseAdmin
+            .from('profiles')
+            .select('avatar_url')
+            .eq('id', userId)
+            .single();
+
+        // Extract file path from URL if exists
+        if (profile?.avatar_url && profile.avatar_url.includes('profile-pictures')) {
+            const urlParts = profile.avatar_url.split('/');
+            const fileName = urlParts[urlParts.length - 1];
+            const filePath = `avatars/${fileName}`;
+
+            console.log('Deleting from storage:', filePath);
+
+            // Delete from Supabase Storage
+            const { error: deleteError } = await supabaseAdmin.storage
+                .from('profile-pictures')
+                .remove([filePath]);
+
+            if (deleteError) {
+                console.error('Storage delete error:', deleteError);
+            }
+        }
+
+        // Update profile to remove avatar
+        const { data: updatedProfile, error: updateError } = await supabaseAdmin
+            .from('profiles')
+            .update({ 
+                avatar_url: null,
+                profile_picture: null,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (updateError) throw updateError;
+
+        console.log('✅ Avatar deleted successfully');
+
+        res.json({
+            success: true,
+            message: 'Avatar deleted successfully',
+            data: updatedProfile
+        });
+
+    } catch (error) {
+        console.error('Delete avatar error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to delete avatar'
+        });
+    }
+};
 // Get User Settings
 const getUserSettings = async (req, res) => {
     try {
@@ -837,6 +916,7 @@ module.exports = {
     getUserProfile,
     updateProfile,
     uploadAvatar,
+    deleteAvatar,
     getUserSettings,
     updateSettings,
     changePassword,

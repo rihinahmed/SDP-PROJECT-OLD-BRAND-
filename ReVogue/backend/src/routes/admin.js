@@ -13,6 +13,7 @@ router.get('/stats', adminController.getStats);
 // User management
 router.get('/users', adminController.getAllUsers);
 router.put('/users/:userId/status', adminController.updateUserStatus);
+router.delete('/users/:userId', adminController.deleteUser); 
 
 // Product management
 router.get('/products', adminController.getAllProducts);

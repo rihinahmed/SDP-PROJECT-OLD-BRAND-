@@ -1,7 +1,17 @@
-// js/dashboard.js - COMPLETE FINAL VERSION
+// js/dashboard.js - COMPLETE FINAL VERSION WITH FIXES
 const API_URL = 'http://localhost:3000/api';
 
 let ordersData = [];
+let activeChat = {
+    conversationId: null,
+    receiverId: null,
+    receiverName: null,
+    productId: null,
+    productName: null,
+    productImage: null,
+    productPrice: null
+};
+let conversations = [];
 
 // Auth Service
 const AuthService = {
@@ -12,6 +22,15 @@ const AuthService = {
     getUser() {
         const user = localStorage.getItem('user');
         return user ? JSON.parse(user) : null;
+    },
+    
+    setUser(user) {
+        localStorage.setItem('user', JSON.stringify(user));
+    },
+
+    // ✅ ADD THIS METHOD - was missing!
+    isAuthenticated() {
+        return !!this.getToken();
     },
     
     logout() {
@@ -99,6 +118,371 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
+async function loadNotifications() {
+    try {
+        console.log('=== LOADING NOTIFICATIONS ===');
+        
+        const response = await apiRequest('/dashboard/notifications');
+        notificationsData = response.data || [];
+        
+        console.log('Loaded notifications:', notificationsData.length);
+        
+        updateNotificationBadge();
+        renderNotificationsList();
+    } catch (error) {
+        console.error('Error loading notifications:', error);
+        notificationsData = [];
+    }
+}
+async function loadMessages() {
+    try {
+        console.log('=== LOADING MESSAGES (CONVERSATIONS) ===');
+        
+        const response = await apiRequest('/messages/conversations');
+        conversations = response.data || [];
+        messagesData = conversations; // Keep for compatibility
+        
+        console.log('Loaded conversations:', conversations.length);
+        
+        updateMessagesBadge();
+        renderConversationsList();
+    } catch (error) {
+        console.error('Error loading messages:', error);
+        conversations = [];
+        messagesData = [];
+    }
+}
+
+function updateNotificationBadge() {
+    const badge = document.getElementById('notificationBadge');
+    if (!badge) return;
+    
+    const unreadCount = notificationsData.filter(n => !n.is_read).length;
+    
+    console.log('📬 Notification badge:', unreadCount);
+    
+    if (unreadCount > 0) {
+        badge.textContent = unreadCount;
+        badge.style.display = 'flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function updateMessagesBadge() {
+    const badge = document.getElementById('messagesBadge');
+    if (!badge) return;
+    
+    // Sum up unread counts from all conversations
+    const totalUnread = conversations.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+    
+    console.log('💬 Messages badge:', totalUnread);
+    
+    if (totalUnread > 0) {
+        badge.textContent = totalUnread;
+        badge.style.display = 'flex';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function renderNotificationsList() {
+    const list = document.getElementById('notificationsList');
+    if (!list) return;
+    
+    if (!notificationsData || notificationsData.length === 0) {
+        list.innerHTML = `
+            <div style="text-align: center; padding: 3rem 2rem; color: #9ca3af;">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 1rem; opacity: 0.3;">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <h4 style="margin: 0 0 0.5rem 0; color: #6b7280; font-size: 1rem;">No notifications</h4>
+                <p style="margin: 0; font-size: 0.875rem;">You're all caught up!</p>
+            </div>
+        `;
+        return;
+    }
+    
+    list.innerHTML = notificationsData.map(n => {
+        const isUnread = !n.is_read;
+        return `
+            <div class="notification-item ${isUnread ? 'unread' : ''}" onclick="markNotificationRead('${n.id}')">
+                <div class="notification-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                </div>
+                <div class="notification-content">
+                    <div class="notification-text">
+                        <strong>${n.title}</strong><br>
+                        ${n.message}
+                    </div>
+                    <div class="notification-time">${formatRelativeTime(n.created_at)}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderConversationsList() {
+    const list = document.getElementById('messagesList');
+    if (!list) return;
+    
+    if (!conversations || conversations.length === 0) {
+        list.innerHTML = `
+            <div style="text-align: center; padding: 3rem 2rem; color: #9ca3af;">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 1rem; opacity: 0.3;">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <h4 style="margin: 0 0 0.5rem 0; color: #6b7280; font-size: 1rem;">No messages yet</h4>
+                <p style="margin: 0; font-size: 0.875rem;">Start a conversation!</p>
+            </div>
+        `;
+        return;
+    }
+    
+    list.innerHTML = conversations.map(conv => {
+        const other = conv.other_user;
+        const name = other?.full_name || other?.username || 'User';
+        const initials = name.charAt(0).toUpperCase();
+        const unreadClass = conv.unread_count > 0 ? 'unread' : '';
+        
+        // Escape for onclick
+        const safeName = name.replace(/'/g, "\\'");
+        // Handle product context safely
+        const productData = conv.product ? JSON.stringify(conv.product).replace(/"/g, '&quot;') : 'null';
+        
+        return `
+            <div class="message-item ${unreadClass}" onclick="openChat('${conv.id}', '${safeName}', ${productData})">
+                <div class="message-avatar">${initials}</div>
+                <div class="message-info">
+                    <div class="message-header">
+                        <div class="message-user">${name}</div>
+                        <div class="notification-time">${formatRelativeTime(conv.last_message_at)}</div>
+                    </div>
+                    <div class="message-preview" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            ${conv.product ? '📦 ' : ''}${conv.last_message}
+                        </span>
+                        ${conv.unread_count > 0 ? `<span class="message-badge">${conv.unread_count}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function formatRelativeTime(timestamp) {
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diff = now - time;
+    
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    
+    return time.toLocaleDateString();
+}
+
+async function markNotificationRead(notificationId) {
+    try {
+        await apiRequest(`/dashboard/notifications/${notificationId}/read`, {
+            method: 'PUT'
+        });
+        
+        // Update local state
+        const notif = notificationsData.find(n => n.id === notificationId);
+        if (notif) {
+            notif.is_read = true;
+            updateNotificationBadge();
+            renderNotificationsList();
+        }
+    } catch (error) {
+        console.error('Error marking notification as read:', error);
+    }
+}
+
+async function openChat(conversationId, username, productData) {
+    let product = productData;
+    if (typeof productData === 'string' && productData !== 'null') {
+        try {
+            product = JSON.parse(productData.replace(/&quot;/g, '"'));
+        } catch (e) {
+            product = null;
+        }
+    }
+    
+    // Set Active Context
+    activeChat = {
+        conversationId: conversationId,
+        receiverId: null,
+        receiverName: username,
+        productId: product?.id || null,
+        productName: product?.name || null,
+        productImage: product?.image_url || null,
+        productPrice: product?.price || null
+    };
+    
+    // Setup UI
+    document.getElementById('chatUsername').textContent = username;
+    document.getElementById('chatAvatar').textContent = username.charAt(0).toUpperCase();
+    document.getElementById('chatMessages').innerHTML = '<div style="text-align:center; padding:2rem; color:#9ca3af;">Loading...</div>';
+    
+    // Show Modal, Hide Dropdown
+    document.getElementById('chatModal').classList.add('active');
+    document.getElementById('messagesPanel')?.classList.remove('active');
+    
+    // Load Messages
+    try {
+        const response = await apiRequest(`/messages/conversation/${conversationId}`);
+        const data = response.data || response;
+        const msgs = data.messages || [];
+        
+        // Render with product card at top if product exists
+        renderChatMessages(msgs, product);
+        
+        // Refresh to update unread counts
+        await loadMessages();
+    } catch (e) {
+        console.error(e);
+        document.getElementById('chatMessages').innerHTML = '<div style="text-align:center; color:#ef4444; padding:2rem;">Failed to load messages</div>';
+    }
+}
+
+function renderChatMessages(msgs, productData = null) {
+    const container = document.getElementById('chatMessages');
+    const user = currentUser;
+    
+    let html = '';
+    
+    // Product card at top
+    if (productData && productData.id) {
+        html += `
+            <div style="text-align: center; margin: 1rem auto 2rem auto; max-width: 350px;">
+                <div style="background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); border-radius: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; border: 2px solid #e5e7eb;">
+                    <img src="${productData.image_url}" alt="${productData.name}" style="width: 100%; height: 180px; object-fit: cover;">
+                    <div style="padding: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            </svg>
+                            <span style="color: #6b7280; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">Product</span>
+                        </div>
+                        <h4 style="margin: 0 0 0.5rem 0; color: #1f2937; font-size: 0.9375rem; font-weight: 600;">${productData.name}</h4>
+                        <p style="margin: 0; color: #a855f7; font-weight: 700; font-size: 1.125rem;">BDT ${parseFloat(productData.price).toFixed(2)}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (activeChat.productId && activeChat.productName) {
+        html += `
+            <div style="text-align: center; margin: 1rem auto 2rem auto; max-width: 350px;">
+                <div style="background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%); border-radius: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; border: 2px solid #e5e7eb;">
+                    <img src="${activeChat.productImage}" alt="${activeChat.productName}" style="width: 100%; height: 180px; object-fit: cover;">
+                    <div style="padding: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            </svg>
+                            <span style="color: #6b7280; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">Product</span>
+                        </div>
+                        <h4 style="margin: 0 0 0.5rem 0; color: #1f2937; font-size: 0.9375rem; font-weight: 600;">${activeChat.productName}</h4>
+                        <p style="margin: 0; color: #a855f7; font-weight: 700; font-size: 1.125rem;">BDT ${parseFloat(activeChat.productPrice).toFixed(2)}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Messages
+    if (msgs.length === 0) {
+        html += `
+            <div style="text-align: center; color: #9ca3af; margin-top: 2rem; font-size: 0.875rem;">
+                No messages yet. Start the conversation!
+            </div>
+        `;
+    } else {
+        html += msgs.map(msg => {
+            const isMe = msg.sender_id === user.id || msg.sender_id === user.profile?.id;
+            const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const messageText = msg.content || msg.message || '';
+            
+            return `
+                <div class="chat-message ${isMe ? 'sent' : 'received'}">
+                    <div class="chat-message-content">
+                        <div class="chat-bubble">${escapeHtml(messageText)}</div>
+                        <div class="chat-time">${time}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    container.innerHTML = html;
+    container.scrollTop = container.scrollHeight;
+}
+
+// Send Chat Message - NEW
+async function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+    
+    const container = document.getElementById('chatMessages');
+    
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const messageHTML = `
+        <div class="chat-message sent">
+            <div class="chat-message-content">
+                <div class="chat-bubble">${escapeHtml(text)}</div>
+                <div class="chat-time">${time}</div>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', messageHTML);
+    container.scrollTop = container.scrollHeight;
+    input.value = '';
+    
+    try {
+        const payload = { message: text };
+        
+        if (activeChat.conversationId) {
+            payload.conversation_id = activeChat.conversationId;
+        } else if (activeChat.receiverId) {
+            payload.receiver_id = activeChat.receiverId;
+            if (activeChat.productId) payload.product_id = activeChat.productId;
+        }
+        
+        const res = await apiRequest('/messages', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        
+        if (res.data && res.data.conversation_id) {
+            activeChat.conversationId = res.data.conversation_id;
+            await loadMessages();
+        }
+    } catch (e) {
+        console.error(e);
+        showNotification('Failed to send', 'error');
+    }
+}
+
+// Helper: Escape HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // Initialize Dashboard
 async function initDashboard() {
     try {
@@ -134,7 +518,6 @@ async function initDashboard() {
         renderSettings();
         renderOrders(); 
         
-        // Initialize interactive elements
         setTimeout(() => {
             initializeSettingsListeners();
             updateNotificationBadge();
@@ -152,16 +535,33 @@ async function initDashboard() {
 // Load Profile from API
 async function loadProfile() {
     try {
+        console.log('=== LOADING PROFILE FROM BACKEND ===');
+        
         const response = await apiRequest('/dashboard/profile');
+        
         if (response.success && response.data) {
             const profile = response.data;
+            console.log('Profile loaded:', profile);
             
             if (!currentUser) currentUser = {};
             currentUser.profile = profile;
+            currentUser.email = profile.email || currentUser.email;
             
+            // Store in localStorage/sessionStorage
             const storage = localStorage.getItem('revogueUser') ? localStorage : sessionStorage;
             storage.setItem('revogueUser', JSON.stringify(currentUser));
             
+            // Also update auth user
+            const authUser = AuthService.getUser();
+            if (authUser) {
+                authUser.status = profile.status;
+                authUser.can_sell = profile.can_sell;
+                authUser.avatar_url = profile.avatar_url || profile.profile_picture;
+                authUser.full_name = profile.full_name;
+                AuthService.setUser(authUser);
+            }
+            
+            // Update UI (this will also update badges)
             updateProfileUI();
         }
     } catch (error) {
@@ -169,32 +569,106 @@ async function loadProfile() {
     }
 }
 
-// Update Profile UI
+// Update Profile UI - WITH DYNAMIC BADGES
 function updateProfileUI() {
     if (!currentUser) return;
     
     const profile = currentUser.profile || currentUser;
     
-    const nameElements = ['userName', 'settingsName'];
-    const emailElements = ['userEmail', 'settingsEmail'];
+    console.log('=== UPDATING PROFILE UI ===');
+    console.log('Profile data:', profile);
     
     const displayName = profile.full_name || profile.username || currentUser.email?.split('@')[0] || 'User';
     
+    // Update name and email
     if (document.getElementById('userName')) document.getElementById('userName').textContent = displayName;
-    if (document.getElementById('userEmail')) document.getElementById('userEmail').textContent = currentUser.email || '';
+    if (document.getElementById('userEmail')) document.getElementById('userEmail').textContent = currentUser.email || profile.email || '';
     
+    // Update settings fields
     if (document.getElementById('settingsName')) document.getElementById('settingsName').value = profile.full_name || '';
-    if (document.getElementById('settingsEmail')) document.getElementById('settingsEmail').value = currentUser.email || '';
+    if (document.getElementById('settingsEmail')) document.getElementById('settingsEmail').value = currentUser.email || profile.email || '';
     if (document.getElementById('settingsLocation')) document.getElementById('settingsLocation').value = profile.location || '';
     if (document.getElementById('settingsPhone')) document.getElementById('settingsPhone').value = profile.phone || '';
     
-    if (profile.avatar_url) {
-        if (document.getElementById('userAvatarImg')) document.getElementById('userAvatarImg').src = profile.avatar_url;
-        if (document.getElementById('settingsAvatarPreview')) document.getElementById('settingsAvatarPreview').src = profile.avatar_url;
+    // Update avatar images WITH ERROR HANDLING
+    const avatarUrl = profile.avatar_url || profile.profile_picture || '/ReVogue/assets/images/profile.jpg';
+    console.log('Avatar URL:', avatarUrl);
+    
+    if (document.getElementById('userAvatarImg')) {
+        document.getElementById('userAvatarImg').src = avatarUrl;
+        document.getElementById('userAvatarImg').onerror = function() {
+            this.src = '/ReVogue/assets/images/profile.jpg';
+        };
     }
+    
+    if (document.getElementById('settingsAvatarPreview')) {
+        document.getElementById('settingsAvatarPreview').src = avatarUrl;
+        document.getElementById('settingsAvatarPreview').onerror = function() {
+            this.src = '/ReVogue/assets/images/profile.jpg';
+        };
+    }
+    
+    // ✅ UPDATE BADGES DYNAMICALLY
+    updateUserBadges(profile);
 }
 
-// 3. ADD NEW FUNCTION - Load Orders
+// NEW FUNCTION: Update User Badges Dynamically
+function updateUserBadges(profile) {
+    const badgesContainer = document.querySelector('.user-badges');
+    if (!badgesContainer) return;
+    
+    console.log('=== UPDATING BADGES ===');
+    console.log('Status:', profile.status);
+    console.log('Can sell:', profile.can_sell);
+    console.log('Created at:', profile.created_at);
+    
+    // Clear existing badges
+    badgesContainer.innerHTML = '';
+    
+    // Status badge configurations
+    const statusBadgeConfig = {
+        'verified': {
+            icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+            text: 'Verified Seller',
+            style: 'background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7;'
+        },
+        'pending': {
+            icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>',
+            text: 'Pending Verification',
+            style: 'background: #fef3c7; color: #92400e; border: 1px solid #fde68a;'
+        },
+        'suspended': {
+            icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>',
+            text: 'Account Suspended',
+            style: 'background: #fee2e2; color: #991b1b; border: 1px solid #fecaca;'
+        }
+    };
+    
+    // Add status badge
+    const status = profile.status || 'pending';
+    const badgeConfig = statusBadgeConfig[status] || statusBadgeConfig['pending'];
+    
+    const statusBadge = document.createElement('span');
+    statusBadge.className = 'badge badge-verified';
+    statusBadge.style.cssText = badgeConfig.style;
+    statusBadge.innerHTML = `${badgeConfig.icon} ${badgeConfig.text}`;
+    badgesContainer.appendChild(statusBadge);
+    
+    // Member since badge
+    if (profile.created_at) {
+        const memberDate = new Date(profile.created_at);
+        const memberSince = memberDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        
+        const memberBadge = document.createElement('span');
+        memberBadge.className = 'badge badge-member';
+        memberBadge.textContent = `Member since ${memberSince}`;
+        badgesContainer.appendChild(memberBadge);
+    }
+    
+    console.log('✅ Badges updated');
+}
+
+// Load Orders
 async function loadOrders() {
     try {
         console.log('=== LOADING ORDERS ===');
@@ -209,7 +683,7 @@ async function loadOrders() {
     }
 }
 
-// 4. ADD NEW FUNCTION - Render Orders
+// Render Orders
 function renderOrders() {
     const list = document.getElementById('ordersList');
     if (!list) return;
@@ -308,7 +782,7 @@ function renderOrders() {
     }).join('');
 }
 
-// 5. ADD NEW FUNCTION - View Order Details
+// View Order Details
 function viewOrderDetails(orderId) {
     const order = ordersData.find(o => o.id === orderId);
     if (!order) return;
@@ -379,7 +853,7 @@ function viewOrderDetails(orderId) {
     document.body.appendChild(modal);
 }
 
-// 6. ADD NEW FUNCTION - Review Order (placeholder)
+// Review Order
 function reviewOrder(orderId) {
     showNotification('Review feature coming soon!', 'info');
 }
@@ -436,13 +910,11 @@ async function loadPurchases() {
     try {
         console.log('=== LOADING PURCHASES (ORDERS) ===');
         
-        // Load orders instead of separate purchases
         const response = await apiRequest('/orders');
         const orders = response.data || [];
         
         console.log('Loaded orders/purchases:', orders.length);
         
-        // Transform orders into purchases format
         purchasesData = orders.map(order => ({
             id: order.id,
             order_number: order.order_number,
@@ -454,7 +926,6 @@ async function loadPurchases() {
             price: order.total_amount,
             created_at: order.created_at,
             status: order.status,
-            // Include all order details for reference
             order_details: order
         }));
         
@@ -465,29 +936,7 @@ async function loadPurchases() {
     }
 }
 
-// Load Notifications
-async function loadNotifications() {
-    try {
-        const response = await apiRequest('/dashboard/notifications');
-        notificationsData = response.data || [];
-        updateNotificationBadge();
-    } catch (error) {
-        console.error('Error loading notifications:', error);
-        notificationsData = [];
-    }
-}
 
-// Load Messages
-async function loadMessages() {
-    try {
-        const response = await apiRequest('/dashboard/messages');
-        messagesData = response.data || [];
-        updateMessagesBadge();
-    } catch (error) {
-        console.error('Error loading messages:', error);
-        messagesData = [];
-    }
-}
 
 // Load Settings
 async function loadSettings() {
@@ -583,6 +1032,8 @@ function renderFavorites() {
         </div>
     `).join('');
 }
+
+// View Purchase Details
 function viewPurchaseDetails(purchaseId) {
     const purchase = purchasesData.find(p => p.id === purchaseId);
     if (!purchase || !purchase.order_details) return;
@@ -711,7 +1162,6 @@ function renderPurchases() {
             'cancelled': 'background: #fee2e2; color: #991b1b;'
         };
         
-        // Check if order can be cancelled (only pending or confirmed)
         const canCancel = ['pending', 'confirmed'].includes(item.status);
         
         return `
@@ -797,11 +1247,11 @@ function renderSettings() {
     if (priceDropToggle) priceDropToggle.checked = userSettings.price_drop_alerts === true;
 }
 
+// Cancel Order
 async function cancelOrder(orderId) {
     const order = purchasesData.find(p => p.id === orderId);
     if (!order) return;
     
-    // Confirmation dialog
     const confirmed = confirm(
         `Are you sure you want to cancel this order?\n\n` +
         `Order: #${order.order_number}\n` +
@@ -818,19 +1268,17 @@ async function cancelOrder(orderId) {
         console.log('=== CANCELLING ORDER ===');
         console.log('Order ID:', orderId);
         
-        // Call API to update order status
         const response = await apiRequest(`/orders/${orderId}/status`, {
             method: 'PUT',
             body: JSON.stringify({
                 status: 'cancelled',
-                payment_status: 'refunded' // Optional: update payment status
+                payment_status: 'refunded'
             })
         });
         
         if (response.success) {
             showNotification('Order cancelled successfully', 'success');
             
-            // Update local data
             const orderIndex = purchasesData.findIndex(p => p.id === orderId);
             if (orderIndex !== -1) {
                 purchasesData[orderIndex].status = 'cancelled';
@@ -838,12 +1286,7 @@ async function cancelOrder(orderId) {
                 purchasesData[orderIndex].order_details.payment_status = 'refunded';
             }
             
-            // Re-render purchases
             renderPurchases();
-            
-            // Optionally reload all purchases to ensure sync
-            // await loadPurchases();
-            // renderPurchases();
         }
     } catch (error) {
         console.error('Cancel order error:', error);
@@ -852,9 +1295,16 @@ async function cancelOrder(orderId) {
         showLoading(false);
     }
 }
-// Modal Controllers
-// Modal Controllers
 
+// Cancel Order From Modal
+async function cancelOrderFromModal(orderId) {
+    const modal = document.querySelector('.modal.active');
+    if (modal) modal.remove();
+    
+    await cancelOrder(orderId);
+}
+
+// Create Sell Modal
 function createSellModal() {
     if (document.getElementById('sellModal')) return;
 
@@ -875,7 +1325,6 @@ function createSellModal() {
                 </div>
                 
                 <form id="sellFormDash" class="sell-form-layout">
-                    <!-- Left Column: Image Upload -->
                     <div class="sell-column-left">
                         <div class="form-group" style="height: 100%;">
                             <label class="form-label">Product Image</label>
@@ -907,7 +1356,6 @@ function createSellModal() {
                         </div>
                     </div>
 
-                    <!-- Right Column: Details -->
                     <div class="sell-column-right">
                         <div class="form-group">
                             <label class="form-label">Product Name</label>
@@ -1012,17 +1460,9 @@ function createSellModal() {
     
     document.getElementById('sellFormDash').onsubmit = handleSellFormSubmit;
     setupAutoConditionSelection();
-    
-}
-async function cancelOrderFromModal(orderId) {
-    // Close the modal first
-    const modal = document.querySelector('.modal.active');
-    if (modal) modal.remove();
-    
-    // Then cancel the order
-    await cancelOrder(orderId);
 }
 
+// Auto Condition Selection
 function setupAutoConditionSelection() {
     const usageTimeInput = document.getElementById('productUsageTimeDash');
     const conditionSelect = document.getElementById('productConditionDash');
@@ -1033,11 +1473,9 @@ function setupAutoConditionSelection() {
         const value = e.target.value.trim();
         const months = parseInt(value);
         
-        // Only works if input is a number
         if (!isNaN(months) && value === months.toString() && months >= 0) {
             let selectedCondition = '';
             
-            // Auto-select based on months
             if (months <= 3) {
                 selectedCondition = 'Like New';
             } else if (months <= 12) {
@@ -1048,7 +1486,6 @@ function setupAutoConditionSelection() {
                 selectedCondition = 'Well Used';
             }
             
-            // Set dropdown and add visual effect
             conditionSelect.value = selectedCondition;
             conditionSelect.style.transition = 'all 0.3s ease';
             conditionSelect.style.background = 'linear-gradient(135deg, #a855f7, #ec4899)';
@@ -1064,9 +1501,7 @@ function setupAutoConditionSelection() {
     });
 }
 
-
-
-// Add New Listing Trigger
+// Add New Listing Button
 document.getElementById('addListingBtn')?.addEventListener('click', () => {
     createSellModal();
     document.getElementById('sellModal').classList.add('active');
@@ -1107,6 +1542,7 @@ async function handleSellFormSubmit(e) {
 
 // Edit/Delete Listing Actions
 let currentEditId = null;
+
 async function editListing(id) {
     const listing = myListingsData.find(item => item.id === id);
     if (!listing) return;
@@ -1179,35 +1615,124 @@ async function removeFavorite(favoriteId) {
     }
 }
 
-// Profile Image Upload
+// FIXED: Profile Image Upload
 document.getElementById('uploadImageBtn')?.addEventListener('click', () => {
     document.getElementById('profileImageInput').click();
 });
 
 document.getElementById('profileImageInput')?.addEventListener('change', async (e) => {
     const file = e.target.files[0];
-    if (!file || !file.type.startsWith('image/')) return;
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+        showNotification('Please select a valid image file', 'error');
+        return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+        showNotification('Image size should be less than 5MB', 'error');
+        return;
+    }
     
     try {
         showLoading(true);
+        console.log('=== UPLOADING PROFILE IMAGE ===');
+        console.log('File:', file.name, file.size, file.type);
+        
         const formData = new FormData();
         formData.append('avatar', file);
         
-        const response = await apiRequest('/dashboard/avatar', { method: 'POST', body: formData });
+        const response = await apiRequest('/dashboard/avatar', { 
+            method: 'POST', 
+            body: formData 
+        });
         
-        if (response.success) {
-            const avatarUrl = response.data.avatar_url;
-            if(currentUser.profile) currentUser.profile.avatar_url = avatarUrl;
-            else currentUser.avatar_url = avatarUrl;
+        console.log('Upload response:', response);
+        
+        if (response.success && response.data) {
+            const avatarUrl = response.data.avatar_url || response.data.profile_picture;
+            console.log('New avatar URL:', avatarUrl);
+            
+            if (currentUser.profile) {
+                currentUser.profile.avatar_url = avatarUrl;
+                currentUser.profile.profile_picture = avatarUrl;
+            } else {
+                currentUser.avatar_url = avatarUrl;
+                currentUser.profile_picture = avatarUrl;
+            }
             
             const storage = localStorage.getItem('revogueUser') ? localStorage : sessionStorage;
             storage.setItem('revogueUser', JSON.stringify(currentUser));
             
-            updateProfileUI();
-            showNotification('Profile image updated', 'success');
+            const authUser = AuthService.getUser();
+            if (authUser) {
+                authUser.avatar_url = avatarUrl;
+                authUser.profile_picture = avatarUrl;
+                AuthService.setUser(authUser);
+            }
+            
+            await loadProfile();
+            
+            if (document.getElementById('userAvatarImg')) {
+                document.getElementById('userAvatarImg').src = avatarUrl + '?t=' + Date.now();
+            }
+            
+            if (document.getElementById('settingsAvatarPreview')) {
+                document.getElementById('settingsAvatarPreview').src = avatarUrl + '?t=' + Date.now();
+            }
+            
+            showNotification('Profile picture updated successfully!', 'success');
+        } else {
+            throw new Error('Failed to upload image');
         }
     } catch (error) {
-        showError('Failed to upload image');
+        console.error('Profile image upload error:', error);
+        showNotification(error.message || 'Failed to upload profile picture', 'error');
+    } finally {
+        showLoading(false);
+        e.target.value = '';
+    }
+});
+
+// Remove Image Button
+document.getElementById('removeImageBtn')?.addEventListener('click', async () => {
+    if (!confirm('Are you sure you want to remove your profile picture?')) return;
+    
+    try {
+        showLoading(true);
+        console.log('=== REMOVING PROFILE IMAGE ===');
+        
+        const response = await apiRequest('/dashboard/avatar', { 
+            method: 'DELETE'
+        });
+        
+        if (response.success) {
+            const defaultAvatar = '/ReVogue/assets/images/profile.jpg';
+            
+            if (currentUser.profile) {
+                currentUser.profile.avatar_url = defaultAvatar;
+                currentUser.profile.profile_picture = defaultAvatar;
+            } else {
+                currentUser.avatar_url = defaultAvatar;
+                currentUser.profile_picture = defaultAvatar;
+            }
+            
+            const storage = localStorage.getItem('revogueUser') ? localStorage : sessionStorage;
+            storage.setItem('revogueUser', JSON.stringify(currentUser));
+            
+            if (document.getElementById('userAvatarImg')) {
+                document.getElementById('userAvatarImg').src = defaultAvatar;
+            }
+            
+            if (document.getElementById('settingsAvatarPreview')) {
+                document.getElementById('settingsAvatarPreview').src = defaultAvatar;
+            }
+            
+            showNotification('Profile picture removed', 'success');
+        }
+    } catch (error) {
+        console.error('Remove image error:', error);
+        showNotification('Failed to remove profile picture', 'error');
     } finally {
         showLoading(false);
     }
@@ -1267,21 +1792,18 @@ function initializeSettingsListeners() {
     });
 }
 
-// Security Actions (Password, 2FA)
-// Change Password Modal Logic
+// Change Password Modal
 const changePasswordBtn = document.getElementById('changePasswordBtn');
 const changePasswordModal = document.getElementById('changePasswordModal');
 const closeChangePasswordModal = document.getElementById('closeChangePasswordModal');
 const cancelChangePassword = document.getElementById('cancelChangePassword');
 const changePasswordForm = document.getElementById('changePasswordForm');
 
-// Open Modal
 changePasswordBtn?.addEventListener('click', () => {
     changePasswordForm.reset();
     changePasswordModal.classList.add('active');
 });
 
-// Close Modal
 function hidePasswordModal() {
     changePasswordModal.classList.remove('active');
 }
@@ -1289,14 +1811,12 @@ function hidePasswordModal() {
 closeChangePasswordModal?.addEventListener('click', hidePasswordModal);
 cancelChangePassword?.addEventListener('click', hidePasswordModal);
 
-// Close on click outside
 window.addEventListener('click', (e) => {
     if (e.target === changePasswordModal) {
         hidePasswordModal();
     }
 });
 
-// Handle Form Submit
 changePasswordForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -1333,6 +1853,7 @@ changePasswordForm?.addEventListener('submit', async (e) => {
         showLoading(false);
     }
 });
+
 document.querySelectorAll('.settings-actions .btn-secondary')[1]?.addEventListener('click', () => {
     showNotification('Two-factor authentication coming soon!', 'info');
 });
@@ -1341,24 +1862,7 @@ document.querySelectorAll('.settings-actions .btn-secondary')[2]?.addEventListen
     showNotification('Privacy settings coming soon!', 'info');
 });
 
-// Badge Management
-function updateNotificationBadge() {
-    const badge = document.getElementById('notificationBadge');
-    if (badge) {
-        const unreadCount = notificationsData.filter(n => !n.read).length;
-        badge.textContent = unreadCount;
-        badge.style.display = unreadCount > 0 ? 'flex' : 'none';
-    }
-}
 
-function updateMessagesBadge() {
-    const badge = document.getElementById('messagesBadge');
-    if (badge && currentUser) {
-        const unreadCount = messagesData.filter(m => !m.is_read && m.receiver_id === currentUser.id).length;
-        badge.textContent = unreadCount;
-        badge.style.display = unreadCount > 0 ? 'flex' : 'none';
-    }
-}
 
 // UI Utilities
 function showLoading(show) {
@@ -1391,8 +1895,40 @@ navItems.forEach(item => {
 document.getElementById('closeEditModal')?.addEventListener('click', () => {
     document.getElementById('editModal').classList.remove('active');
 });
+
 document.getElementById('cancelEdit')?.addEventListener('click', () => {
     document.getElementById('editModal').classList.remove('active');
+});
+
+// Navbar toggles
+document.getElementById('notificationBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const p = document.getElementById('notificationsPanel');
+    p.classList.toggle('active');
+    document.getElementById('messagesPanel')?.classList.remove('active');
+});
+
+document.getElementById('messagesBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const p = document.getElementById('messagesPanel');
+    p.classList.toggle('active');
+    document.getElementById('notificationsPanel')?.classList.remove('active');
+});
+
+// Close panels on outside click
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.dropdown-panel') && !e.target.closest('.icon-btn')) {
+        document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('active'));
+    }
+});
+
+// Chat modal
+document.getElementById('sendMessageBtn')?.addEventListener('click', sendChatMessage);
+document.getElementById('chatInput')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendChatMessage();
+});
+document.getElementById('closeChatModal')?.addEventListener('click', () => {
+    document.getElementById('chatModal').classList.remove('active');
 });
 
 window.addEventListener('click', (e) => {
@@ -1403,10 +1939,22 @@ window.addEventListener('click', (e) => {
 // Initialization
 document.addEventListener('DOMContentLoaded', initDashboard);
 
-// Global Styles for Notifications
+// Global Styles
 const style = document.createElement('style');
 style.textContent = `
     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
 `;
 document.head.appendChild(style);
+
+// Make functions global for onclick
+window.openChat = openChat;
+window.markNotificationRead = markNotificationRead;
+
+// Auto-refresh every 15 seconds
+setInterval(() => {
+    if (AuthService.isAuthenticated()) {
+        loadNotifications();
+        loadMessages();
+    }
+}, 15000);
