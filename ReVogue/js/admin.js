@@ -1230,6 +1230,124 @@ function setupEventListeners() {
     document.getElementById('mobileMenuBtn')?.addEventListener('click', () => {
         document.getElementById('sidebar')?.classList.toggle('open');
     });
+    
+    console.log('✅ Stats rendered');
+}
+
+function animateNumber(element, targetValue) {
+    let currentValue = 0;
+    const increment = targetValue / 50;
+    const duration = 1500; // 1.5 seconds
+    const stepTime = duration / 50;
+    
+    const timer = setInterval(() => {
+        currentValue += increment;
+        if (currentValue >= targetValue) {
+            element.textContent = Math.floor(targetValue).toLocaleString();
+            clearInterval(timer);
+        } else {
+            element.textContent = Math.floor(currentValue).toLocaleString();
+        }
+    }, stepTime);
+}
+
+function renderChart() {
+    const canvas = document.getElementById('userGrowthChart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // If Chart.js is not loaded, create a simple canvas chart
+    if (typeof Chart === 'undefined') {
+        // Simple canvas-based chart
+        const width = canvas.width = canvas.offsetWidth;
+        const height = canvas.height = canvas.offsetHeight;
+        
+        // Sample data
+        const data = [12, 19, 15, 25, 32, 38, 47];
+        const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        
+        const maxValue = Math.max(...data);
+        const padding = 40;
+        const chartWidth = width - padding * 2;
+        const chartHeight = height - padding * 2;
+        
+        // Clear canvas
+        ctx.clearRect(0, 0, width, height);
+        
+        // Draw grid lines
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 5; i++) {
+            const y = padding + (chartHeight / 5) * i;
+            ctx.beginPath();
+            ctx.moveTo(padding, y);
+            ctx.lineTo(width - padding, y);
+            ctx.stroke();
+        }
+        
+        // Draw line chart
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        
+        const gradient = ctx.createLinearGradient(0, padding, 0, height - padding);
+        gradient.addColorStop(0, 'rgba(168, 85, 247, 0.2)');
+        gradient.addColorStop(1, 'rgba(168, 85, 247, 0)');
+        
+        data.forEach((value, index) => {
+            const x = padding + (chartWidth / (data.length - 1)) * index;
+            const y = height - padding - (value / maxValue) * chartHeight;
+            
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        
+        ctx.stroke();
+        
+        // Fill area under line
+        ctx.lineTo(width - padding, height - padding);
+        ctx.lineTo(padding, height - padding);
+        ctx.closePath();
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        
+        // Draw points
+        ctx.fillStyle = '#a855f7';
+        data.forEach((value, index) => {
+            const x = padding + (chartWidth / (data.length - 1)) * index;
+            const y = height - padding - (value / maxValue) * chartHeight;
+            
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw white border
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        });
+        
+        // Draw labels
+        ctx.fillStyle = '#6b7280';
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        labels.forEach((label, index) => {
+            const x = padding + (chartWidth / (data.length - 1)) * index;
+            ctx.fillText(label, x, height - padding + 20);
+        });
+        
+        // Draw y-axis labels
+        ctx.textAlign = 'right';
+        for (let i = 0; i <= 5; i++) {
+            const y = padding + (chartHeight / 5) * i;
+            const value = Math.round(maxValue - (maxValue / 5) * i);
+            ctx.fillText(value.toString(), padding - 10, y + 4);
+        }
+    }
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────
