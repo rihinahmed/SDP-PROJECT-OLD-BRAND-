@@ -463,3 +463,123 @@ exports.getActivityLog = async (req, res) => {
         });
     }
 };
+
+// ═══════════════════════════════════════════════════════════════════════
+// ✅ ADD THESE TWO FUNCTIONS TO THE END OF YOUR adminController.js
+// ═══════════════════════════════════════════════════════════════════════
+
+// Update Order Status (Admin)
+exports.updateOrderStatus = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { status } = req.body;
+
+        console.log('=== ADMIN UPDATE ORDER STATUS ===');
+        console.log('Order ID:', orderId);
+        console.log('New Status:', status);
+        console.log('Admin User:', req.user.id);
+
+        // Validate status
+        const validStatuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid status. Must be one of: ' + validStatuses.join(', ')
+            });
+        }
+
+        // Update order status
+        const { data: order, error } = await supabaseAdmin
+            .from('orders')
+            .update({
+                status: status,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', orderId)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Update order status error:', error);
+            return res.status(400).json({
+                success: false,
+                error: error.message
+            });
+        }
+
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                error: 'Order not found'
+            });
+        }
+
+        console.log('✅ Order status updated successfully');
+
+        res.json({
+            success: true,
+            message: `Order status updated to ${status}`,
+            data: order
+        });
+
+    } catch (error) {
+        console.error('Update order status error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update order status'
+        });
+    }
+};
+
+// Delete Order (Admin)
+exports.deleteOrder = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+
+        console.log('=== ADMIN DELETE ORDER ===');
+        console.log('Order ID:', orderId);
+        console.log('Admin User:', req.user.id);
+
+        // First, get the order details for logging
+        const { data: orderToDelete, error: fetchError } = await supabaseAdmin
+            .from('orders')
+            .select('order_number, customer_first_name, customer_last_name, total_amount')
+            .eq('id', orderId)
+            .single();
+
+        if (fetchError || !orderToDelete) {
+            return res.status(404).json({
+                success: false,
+                error: 'Order not found'
+            });
+        }
+
+        // Delete the order
+        const { error: deleteError } = await supabaseAdmin
+            .from('orders')
+            .delete()
+            .eq('id', orderId);
+
+        if (deleteError) {
+            console.error('Delete order error:', deleteError);
+            return res.status(400).json({
+                success: false,
+                error: deleteError.message
+            });
+        }
+
+        console.log('✅ Order deleted successfully');
+
+        res.json({
+            success: true,
+            message: 'Order deleted successfully'
+        });
+
+    } catch (error) {
+        console.error('Delete order error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to delete order'
+        });
+    }
+};

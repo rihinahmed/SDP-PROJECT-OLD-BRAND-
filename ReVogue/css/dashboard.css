@@ -2157,3 +2157,298 @@ body {
         border-radius: 0;
     }
 }
+
+.sales-orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.sales-order-card {
+    background: var(--gray-50);
+    border: 1px solid var(--purple-100);
+    border-radius: 1rem;
+    overflow: hidden;
+    transition: all 0.3s;
+}
+
+.sales-order-card:hover {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    border-color: var(--purple-300);
+}
+
+.sales-order-header {
+    background: linear-gradient(135deg, #faf5ff 0%, #fdf2f8 100%);
+    padding: 1.25rem;
+    border-bottom: 1px solid var(--purple-100);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sales-order-number {
+    font-size: 1.125rem;
+    font-weight: 700;
+    background: linear-gradient(to right, var(--purple-600), var(--pink-600));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.25rem;
+}
+
+.sales-order-date {
+    font-size: 0.8125rem;
+    color: var(--gray-600);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.sales-order-status-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.sales-order-body {
+    padding: 1.5rem;
+}
+
+.sales-order-product-section {
+    display: flex;
+    gap: 1.25rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--gray-200);
+    margin-bottom: 1.25rem;
+}
+
+.sales-order-product-image {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 0.75rem;
+    border: 2px solid var(--purple-100);
+}
+
+.sales-order-product-details {
+    flex: 1;
+}
+
+.sales-order-product-name {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-bottom: 0.5rem;
+}
+
+.sales-order-product-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-size: 0.875rem;
+    color: var(--gray-600);
+}
+
+.sales-order-product-meta span {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.sales-order-price {
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: linear-gradient(to right, var(--purple-600), var(--pink-600));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.sales-order-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+.sales-order-info-section {
+    background: white;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--gray-200);
+}
+
+.sales-order-info-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sales-order-info-content {
+    font-size: 0.9375rem;
+    color: var(--gray-700);
+    line-height: 1.6;
+}
+
+.sales-order-info-content p {
+    margin: 0 0 0.25rem 0;
+}
+
+.sales-order-info-content strong {
+    color: var(--gray-800);
+    font-weight: 600;
+}
+
+.sales-order-payment-summary {
+    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+    padding: 1rem;
+    border-radius: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.sales-order-payment-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    font-size: 0.9375rem;
+}
+
+.sales-order-payment-row.total {
+    border-top: 2px solid var(--purple-200);
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+    font-weight: 700;
+    font-size: 1.125rem;
+}
+
+.sales-order-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.sales-order-status-select {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--purple-200);
+    border-radius: 0.75rem;
+    background: white;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.sales-order-status-select:focus {
+    outline: none;
+    border-color: var(--purple-500);
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
+}
+
+.sales-order-status-select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: var(--gray-100);
+}
+
+.btn-cancel-order {
+    padding: 0.75rem 1.5rem;
+    background: #fee2e2;
+    color: #991b1b;
+    border: 2px solid #fecaca;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-cancel-order:hover {
+    background: #fecaca;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(153, 27, 27, 0.2);
+}
+
+.btn-view-details {
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(to right, var(--purple-500), var(--pink-500));
+    color: white;
+    border: none;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-view-details:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(168, 85, 247, 0.4);
+}
+
+.status-filter-select {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--purple-200);
+    border-radius: 9999px;
+    background: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.status-filter-select:focus {
+    outline: none;
+    border-color: var(--purple-400);
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
+}
+
+/* Empty state for sales orders */
+.sales-empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.sales-empty-icon {
+    font-size: 5rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .sales-order-info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .sales-order-product-section {
+        flex-direction: column;
+    }
+    
+    .sales-order-product-image {
+        width: 100%;
+        height: 200px;
+    }
+    
+    .sales-order-actions {
+        flex-direction: column;
+    }
+    
+    .sales-order-status-select {
+        width: 100%;
+    }
+}

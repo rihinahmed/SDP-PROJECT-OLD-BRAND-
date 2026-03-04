@@ -2,6 +2,7 @@
 const API_URL = 'http://localhost:3000/api';
 
 let ordersData = [];
+let salesOrdersData = [];
 let activeChat = {
     conversationId: null,
     receiverId: null,
@@ -509,13 +510,15 @@ async function initDashboard() {
             loadOrders(),
             loadNotifications(),
             loadMessages(),
-            loadSettings()
+            loadSettings(),
+            loadSalesOrders()
         ]);
         
         renderMyListings();
         renderFavorites();
         renderPurchases();
         renderSettings();
+        renderSalesOrders();
         renderOrders(); 
         
         setTimeout(() => {
@@ -530,6 +533,263 @@ async function initDashboard() {
         showError('Failed to load dashboard data');
         showLoading(false);
     }
+}
+
+function renderSalesOrders(filterStatus = 'all') {
+    const list = document.getElementById('salesOrdersList');
+    if (!list) {
+        console.error('❌ salesOrdersList element not found');
+        return;
+    }
+    
+    console.log('=== RENDERING SALES ORDERS ===');
+    console.log('Total orders:', salesOrdersData.length);
+    console.log('Filter status:', filterStatus);
+    
+    // Filter orders based on status
+    let filteredOrders = salesOrdersData;
+    if (filterStatus !== 'all') {
+        filteredOrders = salesOrdersData.filter(order => order.status === filterStatus);
+        console.log('Filtered orders:', filteredOrders.length);
+    }
+    
+    if (!filteredOrders || filteredOrders.length === 0) {
+        console.log('⚠️ No orders to display');
+        list.innerHTML = `
+            <div class="sales-empty-state">
+                <div class="sales-empty-icon">📦</div>
+                <h3 class="empty-title">No sales orders ${filterStatus !== 'all' ? 'with status "' + filterStatus + '"' : 'yet'}</h3>
+                <p class="empty-description">${filterStatus !== 'all' ? 'Try changing the filter above' : 'Orders for your products will appear here'}</p>
+                ${salesOrdersData.length > 0 ? '<p style="color: #6b7280; margin-top: 1rem;">💡 Try selecting "All Orders" from the filter</p>' : ''}
+            </div>
+        `;
+        return;
+    }
+    
+    console.log('✅ Rendering', filteredOrders.length, 'orders');
+    
+    // ... rest of rendering code
+}
+
+async function updateSalesOrderStatus(orderId, newStatus) {
+    const order = salesOrdersData.find(o => o.id === orderId);
+    if (!order) return;
+    
+    const confirmMessage = `Change order status to "${newStatus.toUpperCase()}"?\n\nOrder: #${order.order_number}\nCustomer: ${order.customer_first_name} ${order.customer_last_name}`;
+    
+    if (!confirm(confirmMessage)) {
+        // Reset select to original value
+        const select = document.querySelector(`[data-order-id="${orderId}"] .sales-order-status-select`);
+        if (select) select.value = order.status;
+        return;
+    }
+    
+    try {
+        showLoading(true);
+        
+        console.log('=== UPDATING ORDER STATUS ===');
+        console.log('Order ID:', orderId);
+        console.log('New Status:', newStatus);
+        
+        const response = await apiRequest(`/orders/${orderId}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ 
+                status: newStatus,
+                // If delivered, mark payment as completed
+                ...(newStatus === 'delivered' && { payment_status: 'paid' })
+            })
+        });
+        
+        if (response.success) {
+            showNotification(`Order status updated to ${newStatus}`, 'success');
+            
+            // Update local data
+            const orderIndex = salesOrdersData.findIndex(o => o.id === orderId);
+            if (orderIndex !== -1) {
+                salesOrdersData[orderIndex].status = newStatus;
+                if (newStatus === 'delivered') {
+                    salesOrdersData[orderIndex].payment_status = 'paid';
+                }
+            }
+            
+            // Re-render with current filter
+            const filterSelect = document.getElementById('salesStatusFilter');
+            const currentFilter = filterSelect ? filterSelect.value : 'all';
+            renderSalesOrders(currentFilter);
+        }
+    } catch (error) {
+        console.error('Update status error:', error);
+        showNotification(error.message || 'Failed to update status', 'error');
+        
+        // Reset select to original value
+        const select = document.querySelector(`[data-order-id="${orderId}"] .sales-order-status-select`);
+        if (select) select.value = order.status;
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Cancel Sales Order
+async function cancelSalesOrder(orderId) {
+    const order = salesOrdersData.find(o => o.id === orderId);
+    if (!order) return;
+    
+    const confirmed = confirm(
+        `⚠️ CANCEL ORDER ⚠️\n\n` +
+        `Order: #${order.order_number}\n` +
+        `Customer: ${order.customer_first_name} ${order.customer_last_name}\n` +
+        `Product: ${order.product_name}\n` +
+        `Amount: BDT ${parseFloat(order.total_amount).toFixed(2)}\n\n` +
+        `This will refund the customer. Are you sure?`
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+        showLoading(true);
+        
+        const response = await apiRequest(`/orders/${orderId}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                status: 'cancelled',
+                payment_status: 'refunded'
+            })
+        });
+        
+        if (response.success) {
+            showNotification('Order cancelled and refund initiated', 'success');
+            
+            // Update local data
+            const orderIndex = salesOrdersData.findIndex(o => o.id === orderId);
+            if (orderIndex !== -1) {
+                salesOrdersData[orderIndex].status = 'cancelled';
+                salesOrdersData[orderIndex].payment_status = 'refunded';
+            }
+            
+            // Re-render with current filter
+            const filterSelect = document.getElementById('salesStatusFilter');
+            const currentFilter = filterSelect ? filterSelect.value : 'all';
+            renderSalesOrders(currentFilter);
+        }
+    } catch (error) {
+        console.error('Cancel order error:', error);
+        showNotification(error.message || 'Failed to cancel order', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// View Sales Order Details (Full Modal)
+function viewSalesOrderDetails(orderId) {
+    const order = salesOrdersData.find(o => o.id === orderId);
+    if (!order) return;
+    
+    const statusColors = {
+        'pending': 'background: #fef3c7; color: #92400e;',
+        'confirmed': 'background: #dbeafe; color: #1e40af;',
+        'processing': 'background: #e0e7ff; color: #3730a3;',
+        'shipped': 'background: #ddd6fe; color: #5b21b6;',
+        'delivered': 'background: #d1fae5; color: #065f46;',
+        'cancelled': 'background: #fee2e2; color: #991b1b;'
+    };
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title">Order Details - #${order.order_number}</h2>
+                    <span class="badge" style="${statusColors[order.status]}; margin-top: 0.5rem;">
+                        ${order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                    </span>
+                </div>
+                <button class="modal-close" onclick="this.closest('.modal').remove()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div style="padding: 1.5rem; max-height: 70vh; overflow-y: auto;">
+                <!-- Product -->
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 0.875rem; font-weight: 600; color: #6b7280; margin-bottom: 0.75rem; text-transform: uppercase;">Product</h3>
+                    <div style="display: flex; gap: 1rem; align-items: center; background: #f9fafb; padding: 1rem; border-radius: 0.75rem;">
+                        <img src="${order.product_image}" alt="${order.product_name}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 0.5rem;">
+                        <div style="flex: 1;">
+                            <h4 style="font-weight: 600; margin-bottom: 0.25rem;">${order.product_name}</h4>
+                            <p style="color: #6b7280; font-size: 0.875rem;">BDT ${parseFloat(order.product_price).toFixed(2)}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Customer Info -->
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 0.875rem; font-weight: 600; color: #6b7280; margin-bottom: 0.75rem; text-transform: uppercase;">Customer Information</h3>
+                    <div style="background: #f9fafb; padding: 1rem; border-radius: 0.75rem;">
+                        <p style="margin: 0 0 0.5rem 0;"><strong>Name:</strong> ${order.customer_first_name} ${order.customer_last_name}</p>
+                        <p style="margin: 0 0 0.5rem 0;"><strong>Email:</strong> ${order.customer_email || 'N/A'}</p>
+                        <p style="margin: 0;"><strong>Phone:</strong> ${order.shipping_phone}</p>
+                    </div>
+                </div>
+                
+                <!-- Shipping Address -->
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 0.875rem; font-weight: 600; color: #6b7280; margin-bottom: 0.75rem; text-transform: uppercase;">Shipping Address</h3>
+                    <div style="background: #f9fafb; padding: 1rem; border-radius: 0.75rem;">
+                        <p style="margin: 0 0 0.25rem 0;">${order.shipping_address}</p>
+                        ${order.shipping_apartment ? `<p style="margin: 0 0 0.25rem 0;">${order.shipping_apartment}</p>` : ''}
+                        <p style="margin: 0 0 0.25rem 0;">${order.shipping_city}, ${order.shipping_postal_code}</p>
+                    </div>
+                </div>
+                
+                <!-- Payment Details -->
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 0.875rem; font-weight: 600; color: #6b7280; margin-bottom: 0.75rem; text-transform: uppercase;">Payment Details</h3>
+                    <div style="background: #f9fafb; padding: 1rem; border-radius: 0.75rem;">
+                        <p style="margin: 0 0 0.5rem 0;"><strong>Method:</strong> ${order.payment_method.toUpperCase()}</p>
+                        <p style="margin: 0 0 0.5rem 0;"><strong>Status:</strong> <span style="color: ${order.payment_status === 'paid' ? '#10b981' : '#f59e0b'}; font-weight: 600;">${order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1)}</span></p>
+                        ${order.payment_method === 'bkash' && order.bkash_number ? `<p style="margin: 0;"><strong>bKash Number:</strong> ${order.bkash_number}</p>` : ''}
+                        ${order.payment_method === 'nagad' && order.nagad_number ? `<p style="margin: 0;"><strong>Nagad Number:</strong> ${order.nagad_number}</p>` : ''}
+                    </div>
+                </div>
+                
+                <!-- Order Timeline -->
+                <div style="margin-bottom: 1.5rem;">
+                    <h3 style="font-size: 0.875rem; font-weight: 600; color: #6b7280; margin-bottom: 0.75rem; text-transform: uppercase;">Order Timeline</h3>
+                    <div style="background: #f9fafb; padding: 1rem; border-radius: 0.75rem;">
+                        <p style="margin: 0 0 0.5rem 0;"><strong>Placed:</strong> ${new Date(order.created_at).toLocaleString()}</p>
+                        ${order.updated_at !== order.created_at ? `<p style="margin: 0;"><strong>Last Updated:</strong> ${new Date(order.updated_at).toLocaleString()}</p>` : ''}
+                    </div>
+                </div>
+                
+                <!-- Price Breakdown -->
+                <div style="border-top: 2px solid #e5e7eb; padding-top: 1rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Product Price:</span>
+                        <span>BDT ${parseFloat(order.product_price).toFixed(2)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Shipping Cost:</span>
+                        <span>BDT ${parseFloat(order.shipping_cost).toFixed(2)}</span>
+                    </div>
+                    ${order.discount_amount > 0 ? `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: #10b981;">
+                        <span>Discount${order.discount_code ? ` (${order.discount_code})` : ''}:</span>
+                        <span>- BDT ${parseFloat(order.discount_amount).toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 1.25rem; padding-top: 0.75rem; margin-top: 0.75rem; border-top: 2px solid #e5e7eb;">
+                        <span>Total Amount:</span>
+                        <span style="background: linear-gradient(to right, var(--purple-600), var(--pink-600)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">BDT ${parseFloat(order.total_amount).toFixed(2)}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
 }
 
 // Load Profile from API
@@ -1507,6 +1767,11 @@ document.getElementById('addListingBtn')?.addEventListener('click', () => {
     document.getElementById('sellModal').classList.add('active');
 });
 
+document.getElementById('sellBtn')?.addEventListener('click', () => {
+    createSellModal();
+    document.getElementById('sellModal').classList.add('active');
+});
+
 // Handle Sell Form Submit
 async function handleSellFormSubmit(e) {
     e.preventDefault();
@@ -1938,6 +2203,31 @@ window.addEventListener('click', (e) => {
 
 // Initialization
 document.addEventListener('DOMContentLoaded', initDashboard);
+async function loadSalesOrders() {
+    try {
+        console.log('=== LOADING SALES ORDERS ===');
+        
+        const response = await apiRequest('/dashboard/sales-orders');
+        
+        console.log('Sales orders response:', response);
+        
+        if (response.success) {
+            salesOrdersData = response.data || [];
+            console.log('✅ Loaded sales orders:', salesOrdersData.length);
+            
+            // Log first order for debugging
+            if (salesOrdersData.length > 0) {
+                console.log('Sample order:', salesOrdersData[0]);
+            }
+        } else {
+            console.error('❌ Failed to load sales orders:', response.error);
+            salesOrdersData = [];
+        }
+    } catch (error) {
+        console.error('❌ Error loading sales orders:', error);
+        salesOrdersData = [];
+    }
+}
 
 // Global Styles
 const style = document.createElement('style');
@@ -1958,3 +2248,11 @@ setInterval(() => {
         loadMessages();
     }
 }, 15000);
+
+document.getElementById('salesStatusFilter')?.addEventListener('change', (e) => {
+    renderSalesOrders(e.target.value);
+});
+
+window.updateSalesOrderStatus = updateSalesOrderStatus;
+window.cancelSalesOrder = cancelSalesOrder;
+window.viewSalesOrderDetails = viewSalesOrderDetails;

@@ -379,6 +379,22 @@ function showNotification(msg, type = 'info') {
 }
 
 // ============================================
+// ✅ SELL ITEM MODAL HANDLER (NEW)
+// ============================================
+
+function openSellModal() {
+    // Check if user is authenticated
+    if (!AuthService.isAuthenticated()) {
+        showNotification('Please login to sell items', 'error');
+        setTimeout(() => window.location.href = 'login.html', 1500);
+        return;
+    }
+    
+    // Redirect to index.html where the sell modal exists
+    window.location.href = 'index.html?action=sell';
+}
+
+// ============================================
 // EVENT LISTENERS
 // ============================================
 
@@ -408,6 +424,12 @@ document.getElementById('chatInput')?.addEventListener('keypress', (e) => {
 });
 document.getElementById('closeChatModal')?.addEventListener('click', () => {
     document.getElementById('chatModal').classList.remove('active');
+});
+
+// ✅ SELL ITEM BUTTON HANDLER (NEW)
+document.getElementById('sellBtn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    openSellModal();
 });
 
 // ============================================
@@ -468,7 +490,6 @@ class Particle {
     update() {
         this.x += this.speedX;
         this.y += this.speedY;
-
         if (this.x > canvas.width || this.x < 0) this.speedX *= -1;
         if (this.y > canvas.height || this.y < 0) this.speedY *= -1;
     }
@@ -655,9 +676,10 @@ document.querySelector('.cta-button')?.addEventListener('click', () => {
     window.location.href = AuthService.isAuthenticated() ? 'shop.html' : 'login.html';
 });
 
-document.getElementById('sellBtn')?.addEventListener('click', () => {
-    window.location.href = AuthService.isAuthenticated() ? 'index.html' : 'login.html';
-});
+// ✅ REMOVED DUPLICATE - Now handled above in event listeners section
+// document.getElementById('sellBtn')?.addEventListener('click', () => {
+//     window.location.href = AuthService.isAuthenticated() ? 'index.html' : 'login.html';
+// });
 
 window.openChat = openChat;
 

@@ -2,18 +2,111 @@
 // Matches purple-pink gradient theme with smooth animations
 
 document.addEventListener('DOMContentLoaded', () => {
+    checkAndLockSellFeatures();
+});
+
+// Also check after delays to catch dynamically loaded buttons
+setTimeout(checkAndLockSellFeatures, 500);
+setTimeout(checkAndLockSellFeatures, 1500);
+
+function checkAndLockSellFeatures() {
     const user = JSON.parse(localStorage.getItem('user'));
     
+    console.log('=== CHECKING SELL STATUS ===');
     console.log('User can_sell status:', user?.can_sell);
     console.log('User status:', user?.status);
     
     // Only show if user cannot sell
     if (user && !user.can_sell) {
         showSellingStatusNotification(user);
+        lockSellButtons(user); // ✅ Lock buttons
+    } else {
+        unlockSellButtons(); // ✅ Unlock if verified
     }
-});
+}
+
+// ✅ NEW FUNCTION: Lock both sell buttons
+function lockSellButtons(user) {
+    console.log('🔒 LOCKING SELL BUTTONS');
+
+    const message = user.status === 'pending' 
+        ? '⏳ Your account verification is pending. You can sell items once verified.'
+        : user.status === 'suspended'
+        ? '🚫 Your account has been suspended. Please contact support.'
+        : '🔒 You need to be verified to sell items.';
+
+    // Lock header "Sell Item" button
+    const headerSellBtn = document.getElementById('sellBtn');
+    if (headerSellBtn) {
+        headerSellBtn.disabled = true;
+        headerSellBtn.style.opacity = '0.5';
+        headerSellBtn.style.cursor = 'not-allowed';
+        headerSellBtn.title = message;
+        
+        // Override click to show warning
+        headerSellBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showStylishAlert(
+                user.status === 'pending' ? 'Verification Pending' : 
+                user.status === 'suspended' ? 'Account Suspended' : 'Cannot Sell',
+                message,
+                user.status === 'pending' ? 'warning' : 'error'
+            );
+        };
+    }
+
+    // ✅ Lock dashboard "Add New Item" button
+    const dashboardAddBtn = document.getElementById('addListingBtn');
+    if (dashboardAddBtn) {
+        dashboardAddBtn.disabled = true;
+        dashboardAddBtn.style.opacity = '0.5';
+        dashboardAddBtn.style.cursor = 'not-allowed';
+        dashboardAddBtn.title = message;
+        
+        // Override click to show warning
+        dashboardAddBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showStylishAlert(
+                user.status === 'pending' ? 'Verification Pending' : 
+                user.status === 'suspended' ? 'Account Suspended' : 'Cannot Sell',
+                message,
+                user.status === 'pending' ? 'warning' : 'error'
+            );
+        };
+    }
+}
+
+// ✅ NEW FUNCTION: Unlock both sell buttons
+function unlockSellButtons() {
+    console.log('✅ UNLOCKING SELL BUTTONS');
+
+    // Unlock header button
+    const headerSellBtn = document.getElementById('sellBtn');
+    if (headerSellBtn) {
+        headerSellBtn.disabled = false;
+        headerSellBtn.style.opacity = '1';
+        headerSellBtn.style.cursor = 'pointer';
+        headerSellBtn.title = 'List an item for sale';
+        headerSellBtn.onclick = null; // Remove warning handler
+    }
+
+    // Unlock dashboard button
+    const dashboardAddBtn = document.getElementById('addListingBtn');
+    if (dashboardAddBtn) {
+        dashboardAddBtn.disabled = false;
+        dashboardAddBtn.style.opacity = '1';
+        dashboardAddBtn.style.cursor = 'pointer';
+        dashboardAddBtn.title = 'Add a new listing';
+        dashboardAddBtn.onclick = null; // dashboard.js will handle it
+    }
+}
 
 function showSellingStatusNotification(user) {
+    // Don't create duplicate
+    if (document.getElementById('sellingStatusCard')) return;
+    
     // Create floating status card
     const statusCard = document.createElement('div');
     statusCard.id = 'sellingStatusCard';

@@ -789,12 +789,164 @@ document.addEventListener('click', (e) => {
 });
 
 // --- SELL MODAL ---
-const sellModal = document.getElementById('sellModal');
-document.getElementById('sellBtn')?.addEventListener('click', () => {
-    if(!AuthService.isAuthenticated()) return window.location.href = 'login.html';
+// ============================================
+// ✅ SELL MODAL HANDLER (MATCHING DASHBOARD)
+// ============================================
+
+function openSellModal() {
+    // Check authentication
+    if (!AuthService.isAuthenticated()) {
+        showNotification('Please login to sell items', 'error');
+        setTimeout(() => window.location.href = 'login.html', 1500);
+        return;
+    }
+    
+    // Check sell authorization
     const user = AuthService.getUser();
-    if(user && !user.can_sell) return showNotification('Not authorized to sell', 'error');
-    sellModal.classList.add('active');
+    if (user && !user.can_sell) {
+        showNotification('Your account is not authorized to sell items yet', 'error');
+        return;
+    }
+    
+    // Show the modal
+    const modal = document.getElementById('sellModal');
+    if (modal) {
+        modal.classList.add('active');
+    } else {
+        console.error('❌ Sell modal not found');
+    }
+}
+
+// ============================================
+// ✅ AUTO-SELECT CONDITION BASED ON USAGE TIME (ENHANCED)
+// ============================================
+
+function setupAutoConditionSelection() {
+    const usageValueInput = document.getElementById('productUsageTimeValue');
+    const usageUnitSelect = document.getElementById('productUsageTimeUnit');
+    const conditionSelect = document.getElementById('productCondition');
+    const hintElement = document.getElementById('usageTimeHint');
+    
+    if (!usageValueInput || !usageUnitSelect || !conditionSelect) {
+        console.warn('⚠️ Usage time inputs or condition select not found');
+        return;
+    }
+    
+    // Function to calculate total months
+    function calculateMonths() {
+        const value = parseInt(usageValueInput.value) || 0;
+        const unit = usageUnitSelect.value;
+        
+        if (value === 0 || !unit) return 0;
+        
+        let months = 0;
+        
+        switch(unit) {
+            case 'days':
+                months = Math.ceil(value / 30);
+                break;
+            case 'months':
+                months = value;
+                break;
+            case 'years':
+                months = value * 12;
+                break;
+            default:
+                months = 0;
+        }
+        
+        return months;
+    }
+    
+    // Function to determine condition
+    function determineCondition(months) {
+        if (months === 0) return null;
+        
+        if (months <= 3) {
+            return {
+                value: 'Like New',
+                label: '✨ Like New',
+                description: 'Almost brand new! (0-3 months)',
+                class: 'like-new'
+            };
+        } else if (months <= 12) {
+            return {
+                value: 'Good',
+                label: '👍 Good',
+                description: 'Well maintained (4-12 months)',
+                class: 'good'
+            };
+        } else if (months <= 24) {
+            return {
+                value: 'Fair',
+                label: '👌 Fair',
+                description: 'Shows some wear (13-24 months)',
+                class: 'fair'
+            };
+        } else {
+            return {
+                value: 'Well Used',
+                label: '♻️ Well Used',
+                description: 'Loved and used (24+ months)',
+                class: 'well-used'
+            };
+        }
+    }
+    
+    // Function to update condition and hint
+    function updateCondition() {
+        const months = calculateMonths();
+        const condition = determineCondition(months);
+        
+        if (!condition) {
+            // Reset if no valid input
+            hintElement.textContent = '';
+            hintElement.className = 'usage-time-hint';
+            return;
+        }
+        
+        console.log('📊 Calculated:', months, 'months →', condition.value);
+        
+        // Update condition select
+        conditionSelect.value = condition.value;
+        
+        // Add flash animation
+        conditionSelect.classList.remove('condition-auto-selected');
+        void conditionSelect.offsetWidth; // Force reflow
+        conditionSelect.classList.add('condition-auto-selected');
+        
+        // Update hint
+        hintElement.textContent = `${condition.label}: ${condition.description}`;
+        hintElement.className = `usage-time-hint active ${condition.class}`;
+        
+        // Remove flash animation after it completes
+        setTimeout(() => {
+            conditionSelect.classList.remove('condition-auto-selected');
+        }, 600);
+    }
+    
+    // Attach event listeners
+    usageValueInput.addEventListener('input', updateCondition);
+    usageUnitSelect.addEventListener('change', updateCondition);
+    
+    // Also update when condition is manually changed (to hide hint)
+    conditionSelect.addEventListener('change', () => {
+        const months = calculateMonths();
+        const autoCondition = determineCondition(months);
+        
+        // If user manually changed it, fade out the hint
+        if (autoCondition && conditionSelect.value !== autoCondition.value) {
+            setTimeout(() => {
+                hintElement.classList.remove('active');
+            }, 1000);
+        }
+    });
+}
+
+// Attach to Sell Item button
+document.getElementById('sellBtn')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    openSellModal();
 });
 document.getElementById('closeSellModal')?.addEventListener('click', () => sellModal.classList.remove('active'));
 document.getElementById('cancelSell')?.addEventListener('click', () => sellModal.classList.remove('active'));
@@ -804,13 +956,21 @@ document.getElementById('sellForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
         const formData = new FormData();
-        ['productName','productDescription','productPrice','productCategory','productCondition','productSize','productUsageTime'].forEach(id => {
+        
+        // Handle regular fields
+        ['productName','productDescription','productPrice','productCategory','productCondition','productSize'].forEach(id => {
             const el = document.getElementById(id);
-            // Map IDs to backend fields (remove 'product' prefix mostly)
             let key = id.replace('product','').toLowerCase();
-            if(key === 'usagetime') key = 'usageTime'; 
             formData.append(key, el.value);
         });
+        
+        // ✅ Combine usage time value + unit
+        const usageValue = document.getElementById('productUsageTimeValue').value;
+        const usageUnit = document.getElementById('productUsageTimeUnit').value;
+        const usageTime = `${usageValue} ${usageUnit}`;
+        formData.append('usageTime', usageTime);
+        
+        console.log('📦 Submitting usage time:', usageTime);
         const file = document.getElementById('imageInput').files[0];
         if(file) formData.append('image', file);
 
@@ -853,6 +1013,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCategories();
     renderConditionFilters();
     loadProducts();
+    setupAutoConditionSelection();
     
     // ✅ PRICE SLIDER
     const priceSlider = document.getElementById('priceRange');
@@ -955,3 +1116,14 @@ window.addEventListener('resize', () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 });
+
+// ✅ AUTO-OPEN SELL MODAL IF REDIRECTED FROM ABOUT PAGE
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('action') === 'sell') {
+    setTimeout(() => {
+        openSellModal();
+    }, 500);
+    
+    // Clean URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+}

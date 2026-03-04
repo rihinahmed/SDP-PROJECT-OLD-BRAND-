@@ -546,7 +546,331 @@ function viewProductDetails(product) {
     `;
     document.body.appendChild(modal);
 }
-function viewOrderDetails(id) { showNotification('Feature coming soon','info'); }
+function viewOrderDetails(orderId) {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) {
+        showNotification('Order not found', 'error');
+        return;
+    }
+
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.id = 'orderDetailModal';
+    
+    const statusColors = {
+        pending: '#f59e0b',
+        confirmed: '#3b82f6',
+        processing: '#8b5cf6',
+        shipped: '#a855f7',
+        delivered: '#10b981',
+        cancelled: '#ef4444'
+    };
+
+    const currentStatus = order.status || 'pending';
+    
+    modal.innerHTML = `
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title">Order Details</h2>
+                    <p style="color: #6b7280; font-size: 0.875rem; margin-top: 0.25rem;">Order #${order.order_number}</p>
+                </div>
+                <button class="modal-close" onclick="document.getElementById('orderDetailModal').remove()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <div class="order-detail-grid">
+                    <!-- Status Section -->
+                    <div class="order-detail-section">
+                        <div class="order-section-header">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            <h3>Order Status</h3>
+                        </div>
+                        <div class="order-detail-content">
+                            <div class="status-change-section">
+                                <div class="current-status-display">
+                                    <span style="font-size: 0.875rem; color: #6b7280;">Current Status:</span>
+                                    <span class="status-badge ${currentStatus}" style="font-size: 1rem; padding: 0.5rem 1rem; margin-top: 0.5rem;">
+                                        ${currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1)}
+                                    </span>
+                                </div>
+                                
+                                <div style="margin-top: 1.5rem;">
+                                    <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">
+                                        Change Status:
+                                    </label>
+                                    <select id="orderStatusSelect" class="status-select-large">
+                                        <option value="pending" ${currentStatus === 'pending' ? 'selected' : ''}>Pending</option>
+                                        <option value="confirmed" ${currentStatus === 'confirmed' ? 'selected' : ''}>Confirmed</option>
+                                        <option value="processing" ${currentStatus === 'processing' ? 'selected' : ''}>Processing</option>
+                                        <option value="shipped" ${currentStatus === 'shipped' ? 'selected' : ''}>Shipped</option>
+                                        <option value="delivered" ${currentStatus === 'delivered' ? 'selected' : ''}>Delivered</option>
+                                        <option value="cancelled" ${currentStatus === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                                    </select>
+                                    <button class="btn-update-status" onclick="updateOrderStatus('${order.id}')">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="20 6 9 17 4 12"></polyline>
+                                        </svg>
+                                        Update Status
+                                    </button>
+                                </div>
+
+                                <div class="status-timeline">
+                                    <div class="timeline-item ${['pending','confirmed','processing','shipped','delivered'].indexOf(currentStatus) >= 0 ? 'completed' : ''}">
+                                        <div class="timeline-dot"></div>
+                                        <div class="timeline-label">Pending</div>
+                                    </div>
+                                    <div class="timeline-line ${['confirmed','processing','shipped','delivered'].indexOf(currentStatus) >= 0 ? 'completed' : ''}"></div>
+                                    <div class="timeline-item ${['confirmed','processing','shipped','delivered'].indexOf(currentStatus) >= 0 ? 'completed' : ''}">
+                                        <div class="timeline-dot"></div>
+                                        <div class="timeline-label">Confirmed</div>
+                                    </div>
+                                    <div class="timeline-line ${['processing','shipped','delivered'].indexOf(currentStatus) >= 0 ? 'completed' : ''}"></div>
+                                    <div class="timeline-item ${['processing','shipped','delivered'].indexOf(currentStatus) >= 0 ? 'completed' : ''}">
+                                        <div class="timeline-dot"></div>
+                                        <div class="timeline-label">Processing</div>
+                                    </div>
+                                    <div class="timeline-line ${['shipped','delivered'].indexOf(currentStatus) >= 0 ? 'completed' : ''}"></div>
+                                    <div class="timeline-item ${['shipped','delivered'].indexOf(currentStatus) >= 0 ? 'completed' : ''}">
+                                        <div class="timeline-dot"></div>
+                                        <div class="timeline-label">Shipped</div>
+                                    </div>
+                                    <div class="timeline-line ${currentStatus === 'delivered' ? 'completed' : ''}"></div>
+                                    <div class="timeline-item ${currentStatus === 'delivered' ? 'completed' : ''}">
+                                        <div class="timeline-dot"></div>
+                                        <div class="timeline-label">Delivered</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Customer Information -->
+                    <div class="order-detail-section">
+                        <div class="order-section-header">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                            </svg>
+                            <h3>Customer Information</h3>
+                        </div>
+                        <div class="order-detail-content">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <label>Full Name</label>
+                                    <span>${order.customer_first_name} ${order.customer_last_name}</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Phone Number</label>
+                                    <span>${order.customer_phone || 'N/A'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Shipping Information -->
+                    <div class="order-detail-section">
+                        <div class="order-section-header">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                            </svg>
+                            <h3>Shipping Address</h3>
+                        </div>
+                        <div class="order-detail-content">
+                            <div class="address-display">
+                                <p>${order.shipping_address}</p>
+                                <p>${order.shipping_city}, ${order.shipping_postal_code}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product Information -->
+                    <div class="order-detail-section">
+                        <div class="order-section-header">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            </svg>
+                            <h3>Product Details</h3>
+                        </div>
+                        <div class="order-detail-content">
+                            <div class="product-order-card">
+                                ${order.product_image ? `<img src="${order.product_image}" alt="${order.product_name}" class="product-order-img">` : ''}
+                                <div class="product-order-info">
+                                    <div class="product-order-name">${order.product_name || 'Product'}</div>
+                                    <div class="product-order-price">৳${parseFloat(order.subtotal || order.total_amount).toFixed(2)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Information -->
+                    <div class="order-detail-section">
+                        <div class="order-section-header">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                                <line x1="1" y1="10" x2="23" y2="10"></line>
+                            </svg>
+                            <h3>Payment Information</h3>
+                        </div>
+                        <div class="order-detail-content">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <label>Payment Method</label>
+                                    <span class="payment-method-badge">${order.payment_method?.toUpperCase() || 'N/A'}</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Payment Status</label>
+                                    <span class="payment-status-badge status-${order.payment_status || 'pending'}">
+                                        ${(order.payment_status || 'pending').charAt(0).toUpperCase() + (order.payment_status || 'pending').slice(1)}
+                                    </span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Subtotal</label>
+                                    <span>৳${parseFloat(order.subtotal || order.total_amount).toFixed(2)}</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Shipping Cost</label>
+                                    <span>৳${parseFloat(order.shipping_cost || 0).toFixed(2)}</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Total Amount</label>
+                                    <span style="font-weight: 700; font-size: 1.125rem; color: #a855f7;">৳${parseFloat(order.total_amount).toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Order Metadata -->
+                    <div class="order-detail-section">
+                        <div class="order-section-header">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            <h3>Order Information</h3>
+                        </div>
+                        <div class="order-detail-content">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <label>Order Date</label>
+                                    <span>${formatDate(order.created_at)}</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>Last Updated</label>
+                                    <span>${formatTimeAgo(order.updated_at || order.created_at)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="document.getElementById('orderDetailModal').remove()">
+                    Close
+                </button>
+                <button class="btn-danger" onclick="deleteOrderAdmin('${order.id}')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                    Delete Order
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+}
+
+async function updateOrderStatus(orderId) {
+    const selectElement = document.getElementById('orderStatusSelect');
+    if (!selectElement) return;
+    
+    const newStatus = selectElement.value;
+    const order = orders.find(o => o.id === orderId);
+    
+    if (!order) {
+        showNotification('Order not found', 'error');
+        return;
+    }
+
+    if (order.status === newStatus) {
+        showNotification('Status is already ' + newStatus, 'info');
+        return;
+    }
+
+    try {
+        showLoading(true);
+        
+        const response = await apiRequest(`/admin/orders/${orderId}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: newStatus })
+        });
+
+        if (response.success) {
+            // Update local data
+            order.status = newStatus;
+            order.updated_at = new Date().toISOString();
+            
+            showNotification(`Order status updated to ${newStatus}`, 'success');
+            
+            // Reload orders table
+            renderOrdersTable();
+            
+            // Close and reopen modal to show updated status
+            document.getElementById('orderDetailModal')?.remove();
+            setTimeout(() => viewOrderDetails(orderId), 300);
+        }
+    } catch (error) {
+        console.error('Update order status error:', error);
+        showNotification('Failed to update order status', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+async function deleteOrderAdmin(orderId) {
+    if (!confirm('Are you sure you want to delete this order? This action cannot be undone.')) {
+        return;
+    }
+
+    try {
+        showLoading(true);
+        
+        const response = await apiRequest(`/admin/orders/${orderId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.success) {
+            // Remove from local array
+            orders = orders.filter(o => o.id !== orderId);
+            
+            // Close modal
+            document.getElementById('orderDetailModal')?.remove();
+            
+            // Reload table
+            renderOrdersTable();
+            
+            showNotification('Order deleted successfully', 'success');
+        }
+    } catch (error) {
+        console.error('Delete order error:', error);
+        showNotification('Failed to delete order', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // ✅ LIVE SUPPORT CHAT - COMPLETELY FIXED
@@ -1065,6 +1389,9 @@ window.markContactMessageRead = markContactMessageRead;
 window.deleteContactMessage = deleteContactMessage;
 window.markAllMessagesRead = markAllMessagesRead;
 window.viewProductDetails = viewProductDetails;
+window.viewOrderDetails = viewOrderDetails;
+window.updateOrderStatus = updateOrderStatus;
+window.deleteOrderAdmin = deleteOrderAdmin;
 
 const style = document.createElement('style');
 style.textContent = '@keyframes spin{to{transform:rotate(360deg)}} @keyframes notifSlide{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}';
