@@ -263,8 +263,24 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Usage Time *</label>
-                        <input type="text" id="productUsageTime" placeholder="e.g., 6 months, 2 years" required>
+                        <label class="form-label">Usage Time</label>
+                        <div class="usage-time-inputs">
+                            <input 
+                                type="number" 
+                                id="productUsageTimeValue" 
+                                class="input-styled usage-time-number" 
+                                placeholder="0" 
+                                min="0" 
+                                required
+                            >
+                            <select id="productUsageTimeUnit" class="input-styled usage-time-unit" required>
+                                <option value="" disabled selected>Select Unit</option>
+                                <option value="days">Days</option>
+                                <option value="months">Months</option>
+                                <option value="years">Years</option>
+                            </select>
+                        </div>
+                        <div id="usageTimeHint" class="usage-time-hint"></div>
                     </div>
                 </div>
 

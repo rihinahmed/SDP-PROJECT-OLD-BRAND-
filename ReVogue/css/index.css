@@ -1707,3 +1707,91 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* Usage Time Dual Input */
+.usage-time-inputs {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.usage-time-number {
+    flex: 1;
+    min-width: 0;
+}
+
+.usage-time-unit {
+    flex: 1.5;
+    min-width: 0;
+}
+
+/* Usage Time Hint */
+.usage-time-hint {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    opacity: 0;
+    transform: translateY(-5px);
+}
+
+.usage-time-hint.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.usage-time-hint.like-new {
+    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+}
+
+.usage-time-hint.good {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #1e40af;
+    border: 1px solid #93c5fd;
+}
+
+.usage-time-hint.fair {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #92400e;
+    border: 1px solid #fcd34d;
+}
+
+.usage-time-hint.well-used {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+/* Condition Select Animation */
+.condition-auto-selected {
+    animation: conditionFlash 0.6s ease;
+}
+
+@keyframes conditionFlash {
+    0%, 100% {
+        background: transparent;
+        color: inherit;
+    }
+    50% {
+        background: linear-gradient(135deg, #a855f7, #ec4899);
+        color: white;
+        transform: scale(1.02);
+    }
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .usage-time-inputs {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .usage-time-number,
+    .usage-time-unit {
+        flex: 1;
+        width: 100%;
+    }
+}

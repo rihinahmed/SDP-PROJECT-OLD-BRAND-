@@ -1,4 +1,4 @@
-// src/routes/admin.js - COMPLETE WORKING VERSION
+// src/routes/admin.js - UPDATED WITH ORDER MANAGEMENT
 const router = require('router')();
 const { authenticateUser, requireAdmin } = require('../middleware/auth');
 const adminController = require('../controllers/adminController');
@@ -20,8 +20,10 @@ router.get('/products', adminController.getAllProducts);
 router.put('/products/:productId/status', adminController.updateProductStatus);
 router.delete('/products/:productId', adminController.deleteProduct);
 
-// Order management
+// ✅ Order management - UPDATED
 router.get('/orders', adminController.getAllOrders);
+router.put('/orders/:orderId/status', adminController.updateOrderStatus);  // NEW
+router.delete('/orders/:orderId', adminController.deleteOrder);            // NEW
 
 // Activity log
 router.get('/activity', adminController.getActivityLog);

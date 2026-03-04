@@ -579,6 +579,7 @@ const deleteAvatar = async (req, res) => {
         });
     }
 };
+
 // Get User Settings
 const getUserSettings = async (req, res) => {
     try {
@@ -904,6 +905,114 @@ const markMessageRead = async (req, res) => {
     }
 };
 
+// ✅ Get sales orders (orders for products sold by this user)
+const getSalesOrders = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        console.log('=== GET SALES ORDERS ===');
+        console.log('Seller ID:', userId);
+        
+        // CORRECTED QUERY: Join orders with products to find seller's orders
+        const { data: orders, error } = await supabaseAdmin
+            .from('orders')
+            .select(`
+                *,
+                products!inner (
+                    id,
+                    name,
+                    image_url,
+                    price,
+                    seller_id,
+                    profiles!seller_id (
+                        full_name,
+                        username
+                    )
+                )
+            `)
+            .eq('products.seller_id', userId)
+            .order('created_at', { ascending: false });
+        
+        if (error) {
+            console.error('❌ Orders query error:', error);
+            throw error;
+        }
+        
+        console.log('✅ Orders found:', orders?.length || 0);
+        
+        if (!orders || orders.length === 0) {
+            return res.json({
+                success: true,
+                data: []
+            });
+        }
+        
+        // Transform data to match frontend expectations
+        const transformedOrders = orders.map(order => {
+            const product = order.products;
+            
+            return {
+                // Order fields
+                id: order.id,
+                order_number: order.order_number,
+                status: order.status,
+                payment_status: order.payment_status,
+                payment_method: order.payment_method,
+                
+                // Product info
+                product_id: order.product_id,
+                product_name: product?.name || 'Unknown Product',
+                product_image: product?.image_url || null,
+                product_price: product?.price || order.subtotal || 0,
+                
+                // Customer info
+                customer_first_name: order.customer_first_name,
+                customer_last_name: order.customer_last_name,
+                customer_email: order.customer_email,
+                
+                // Shipping info
+                shipping_address: order.shipping_address,
+                shipping_apartment: order.shipping_apartment,
+                shipping_city: order.shipping_city,
+                shipping_postal_code: order.shipping_postal_code,
+                shipping_phone: order.shipping_phone,
+                
+                // Financial info
+                subtotal: order.subtotal,
+                shipping_cost: order.shipping_cost,
+                discount_amount: order.discount_amount || 0,
+                discount_code: order.discount_code,
+                total_amount: order.total_amount,
+                
+                // Payment details
+                bkash_number: order.bkash_number,
+                nagad_number: order.nagad_number,
+                
+                // Timestamps
+                created_at: order.created_at,
+                updated_at: order.updated_at
+            };
+        });
+        
+        console.log('✅ Transformed orders:', transformedOrders.length);
+        console.log('Sample order:', JSON.stringify(transformedOrders[0], null, 2));
+        
+        res.json({
+            success: true,
+            data: transformedOrders
+        });
+        
+    } catch (error) {
+        console.error('❌ Get sales orders error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch sales orders',
+            details: error.message
+        });
+    }
+};
+
+// ✅ FIXED: Export all functions including getSalesOrders
 module.exports = {
     getDashboardStats,
     getUserListings,
@@ -925,5 +1034,6 @@ module.exports = {
     markAllNotificationsRead,
     getMessages,
     sendMessage,
-    markMessageRead
+    markMessageRead,
+    getSalesOrders  // ✅ ADDED THIS LINE
 };

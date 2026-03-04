@@ -24,6 +24,7 @@ router.delete('/favorites/:id', dashboardController.removeFavorite);
 
 // Purchases
 router.get('/purchases', dashboardController.getUserPurchases);
+router.get('/sales-orders', dashboardController.getSalesOrders);
 
 // Profile
 router.get('/profile', dashboardController.getUserProfile);
